@@ -3,6 +3,9 @@
   "version": "0.21.1",
   "description": "Easy-to-Use Full-Stack Sui Starter",
   "packageManager": "pnpm@10.18.0",
+  "dependencies": {
+    "next": "16.0.10"
+  },
   "scripts": {
     "dev": "pnpm frontend:dev",
     "start": "pnpm dev",
@@ -98,5 +101,5 @@
   },
   "bugs": {
     "url": "https://github.com/suiware/sui-dapp-starter/issues"
-  } 
+  }
 }
