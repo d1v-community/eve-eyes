@@ -1,0 +1,148 @@
+.sds-ambient-background {
+  position: fixed;
+  inset: 0;
+  z-index: -50;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 34%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(241, 245, 249, 0.88) 52%, rgba(255, 255, 255, 0.98) 100%);
+}
+
+.dark .sds-ambient-background {
+  background:
+    radial-gradient(circle at top, rgba(30, 41, 59, 0.42), rgba(2, 6, 23, 0) 34%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98) 0%, rgba(3, 7, 18, 0.95) 50%, rgba(2, 6, 23, 1) 100%);
+}
+
+.sds-ambient-grid,
+.sds-ambient-glow,
+.sds-ambient-column,
+.sds-ambient-noise {
+  pointer-events: none;
+  position: absolute;
+}
+
+.sds-ambient-grid {
+  inset: 0;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 38%, transparent 92%);
+}
+
+.dark .sds-ambient-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+}
+
+.sds-ambient-glow {
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  filter: blur(36px);
+  animation: sdsAmbientFloat 16s ease-in-out infinite;
+}
+
+.sds-ambient-glow-top {
+  top: -8rem;
+  height: 20rem;
+  width: min(68rem, 88vw);
+  background:
+    radial-gradient(circle at center, rgba(77, 162, 255, 0.18) 0%, rgba(77, 162, 255, 0.06) 36%, transparent 72%);
+}
+
+.sds-ambient-glow-center {
+  top: 28%;
+  height: 18rem;
+  width: min(42rem, 72vw);
+  background:
+    radial-gradient(circle at center, rgba(254, 213, 244, 0.3) 0%, rgba(254, 213, 244, 0.08) 45%, transparent 76%);
+  animation-duration: 20s;
+}
+
+.dark .sds-ambient-glow-top {
+  background:
+    radial-gradient(circle at center, rgba(77, 162, 255, 0.14) 0%, rgba(77, 162, 255, 0.03) 40%, transparent 72%);
+}
+
+.dark .sds-ambient-glow-center {
+  background:
+    radial-gradient(circle at center, rgba(254, 213, 244, 0.12) 0%, rgba(254, 213, 244, 0.03) 45%, transparent 76%);
+}
+
+.sds-ambient-column {
+  top: -10vh;
+  height: 120vh;
+  width: clamp(10rem, 18vw, 16rem);
+  border-radius: 999px;
+  filter: blur(14px);
+  opacity: 0.45;
+  animation: sdsAmbientPulse 14s ease-in-out infinite;
+}
+
+.sds-ambient-column-left {
+  left: max(2rem, 7vw);
+  background: linear-gradient(180deg, rgba(77, 162, 255, 0.18), rgba(77, 162, 255, 0.03) 36%, transparent 100%);
+}
+
+.sds-ambient-column-right {
+  right: max(2rem, 7vw);
+  background: linear-gradient(180deg, rgba(254, 213, 244, 0.2), rgba(254, 213, 244, 0.03) 34%, transparent 100%);
+  animation-delay: -7s;
+}
+
+.dark .sds-ambient-column-left {
+  background: linear-gradient(180deg, rgba(77, 162, 255, 0.12), rgba(77, 162, 255, 0.02) 36%, transparent 100%);
+}
+
+.dark .sds-ambient-column-right {
+  background: linear-gradient(180deg, rgba(254, 213, 244, 0.1), rgba(254, 213, 244, 0.02) 34%, transparent 100%);
+}
+
+.sds-ambient-noise {
+  inset: 0;
+  opacity: 0.035;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(15, 23, 42, 0.75) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 80% 35%, rgba(15, 23, 42, 0.45) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 35% 75%, rgba(15, 23, 42, 0.55) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 70% 82%, rgba(15, 23, 42, 0.35) 0.7px, transparent 0.8px);
+  background-size: 180px 180px;
+}
+
+.dark .sds-ambient-noise {
+  opacity: 0.05;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.7) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 80% 35%, rgba(255, 255, 255, 0.35) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 35% 75%, rgba(255, 255, 255, 0.4) 0.7px, transparent 0.8px),
+    radial-gradient(circle at 70% 82%, rgba(255, 255, 255, 0.25) 0.7px, transparent 0.8px);
+}
+
+@keyframes sdsAmbientFloat {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.82;
+  }
+  50% {
+    transform: translateX(-50%) translateY(1.4rem);
+    opacity: 1;
+  }
+}
+
+@keyframes sdsAmbientPulse {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: scaleY(0.98);
+  }
+  50% {
+    opacity: 0.46;
+    transform: scaleY(1.02);
+  }
+}
