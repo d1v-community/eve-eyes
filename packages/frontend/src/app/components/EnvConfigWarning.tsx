@@ -43,3 +43,5 @@ const EnvConfigWarning = () => {
     </div>
   )
 }
+
+export default EnvConfigWarning
