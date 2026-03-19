@@ -131,6 +131,9 @@ const GreetingForm = () => {
     return (
       <TextMessage>
         No contract is configured for the current network.
+        <br />
+        Make sure you have set the correct NEXT_PUBLIC_*_CONTRACT_PACKAGE_ID
+        environment variable for this network in your deployment settings.
       </TextMessage>
     )
   }
