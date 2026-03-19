@@ -1,9 +1,11 @@
 import GreetingForm from '~~/dapp/components/GreetingForm'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
+import EnvConfigWarning from './components/EnvConfigWarning'
 
 export default function Home() {
   return (
     <>
+      <EnvConfigWarning />
       <NetworkSupportChecker />
       <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center px-4 py-8">
         <section className="mb-10 w-full max-w-2xl text-center">
