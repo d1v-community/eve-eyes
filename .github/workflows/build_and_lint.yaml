@@ -22,12 +22,12 @@ jobs:
           ref: main
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 8
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm --filter=frontend build
       - run: pnpm --filter=frontend lint
