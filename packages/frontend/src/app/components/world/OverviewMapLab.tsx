@@ -2,6 +2,8 @@
 
 import { Network, Orbit, Radar } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import OverviewCorridorDeck from './OverviewCorridorDeck'
+import OverviewNetworkGraph from './OverviewNetworkGraph'
 import OverviewSpatialAtlas from './OverviewSpatialAtlas'
 
 type MapSystem = {
@@ -49,8 +51,6 @@ type PositionedSystem = MapSystem & {
 const WIDTH = 880
 const HEIGHT = 480
 const PADDING = 56
-
-const REGION_COLORS = ['#7dd3fc', '#38bdf8', '#22d3ee', '#a78bfa', '#f59e0b', '#fb7185']
 
 const modeMeta: Record<
   ModeKey,
@@ -219,10 +219,6 @@ function buildCorridors(
     .slice(0, 10)
 }
 
-function getRegionColor(regionId: number) {
-  return REGION_COLORS[Math.abs(regionId) % REGION_COLORS.length]
-}
-
 function tabClassName(active: boolean) {
   return [
     'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.24em] transition',
@@ -239,6 +235,10 @@ export default function OverviewMapLab({
 }: OverviewMapLabProps) {
   const [mode, setMode] = useState<ModeKey>('spatial')
   const [hoveredSystem, setHoveredSystem] = useState<MapSystem | null>(null)
+  const [selectedSystemId, setSelectedSystemId] = useState<number | null>(systems[0]?.id ?? null)
+  const [networkQuery, setNetworkQuery] = useState('')
+  const [hoveredCorridorKey, setHoveredCorridorKey] = useState<string | null>(null)
+  const [selectedCorridorKey, setSelectedCorridorKey] = useState<string | null>(null)
 
   const positionedSystems = useMemo(() => normalizeSystems(systems), [systems])
   const anchors = useMemo(
@@ -255,7 +255,39 @@ export default function OverviewMapLab({
   )
 
   const activeMode = modeMeta[mode]
-  const highlightedSystems = positionedSystems.slice(0, 6)
+  const selectedSystem =
+    systems.find((system) => system.id === selectedSystemId) ?? hoveredSystem ?? null
+  const degreeMap = useMemo(() => {
+    const next = new Map<number, number>()
+    for (const link of gateLinks) {
+      next.set(link.fromId, (next.get(link.fromId) ?? 0) + 1)
+      next.set(link.toId, (next.get(link.toId) ?? 0) + 1)
+    }
+    return next
+  }, [gateLinks])
+  const topHubSystems = useMemo(
+    () =>
+      [...systems]
+        .sort((left, right) => (degreeMap.get(right.id) ?? 0) - (degreeMap.get(left.id) ?? 0))
+        .slice(0, 5),
+    [degreeMap, systems]
+  )
+  const filteredNetworkSystems = useMemo(() => {
+    const query = networkQuery.trim().toLowerCase()
+    if (query.length < 2) return []
+    return systems
+      .filter((system) => system.name.toLowerCase().includes(query))
+      .slice(0, 6)
+  }, [networkQuery, systems])
+  const selectedCorridor = useMemo(
+    () =>
+      corridors.find(
+        (corridor) =>
+          `${corridor.fromId}-${corridor.toId}` ===
+          (hoveredCorridorKey ?? selectedCorridorKey)
+      ) ?? null,
+    [corridors, hoveredCorridorKey, selectedCorridorKey]
+  )
 
   return (
     <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75 md:p-6">
@@ -303,130 +335,38 @@ export default function OverviewMapLab({
                 fromId: link.fromId,
                 toId: link.toId,
               }))}
+              selectedSystemId={selectedSystemId}
+              onSelectSystemId={setSelectedSystemId}
+              onHoverSystem={setHoveredSystem}
+            />
+          ) : mode === 'network' ? (
+            <OverviewNetworkGraph
+              systems={systems}
+              gateLinks={gateLinks.map((link) => ({
+                fromId: link.fromId,
+                toId: link.toId,
+              }))}
+              selectedSystemId={selectedSystemId}
+              onSelectSystemId={setSelectedSystemId}
               onHoverSystem={setHoveredSystem}
             />
           ) : (
-            <svg
-              viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-              className="h-full w-full"
-              role="img"
-              aria-label={activeMode.title}
-            >
-              <defs>
-                <radialGradient id="overview-grid-glow" cx="50%" cy="46%" r="65%">
-                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.18" />
-                  <stop offset="55%" stopColor="#312e81" stopOpacity="0.08" />
-                  <stop offset="100%" stopColor="#020617" stopOpacity="0" />
-                </radialGradient>
-                <linearGradient id="corridor-stroke" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.2" />
-                  <stop offset="50%" stopColor="#7dd3fc" stopOpacity="0.95" />
-                  <stop offset="100%" stopColor="#f0abfc" stopOpacity="0.2" />
-                </linearGradient>
-              </defs>
-
-              <rect width={WIDTH} height={HEIGHT} fill="#020617" />
-              <rect width={WIDTH} height={HEIGHT} fill="url(#overview-grid-glow)" />
-
-              {Array.from({ length: 12 }).map((_, index) => (
-                <line
-                  key={`v-${index}`}
-                  x1={(WIDTH / 12) * index}
-                  y1="0"
-                  x2={(WIDTH / 12) * index}
-                  y2={HEIGHT}
-                  stroke="rgba(148,163,184,0.08)"
-                  strokeWidth="1"
-                />
-              ))}
-              {Array.from({ length: 8 }).map((_, index) => (
-                <line
-                  key={`h-${index}`}
-                  x1="0"
-                  y1={(HEIGHT / 8) * index}
-                  x2={WIDTH}
-                  y2={(HEIGHT / 8) * index}
-                  stroke="rgba(148,163,184,0.08)"
-                  strokeWidth="1"
-                />
-              ))}
-
-              {mode === 'network' &&
-                gateEdges.map((edge) => (
-                  <line
-                    key={edge.id}
-                    x1={edge.from.px}
-                    y1={edge.from.py}
-                    x2={edge.to.px}
-                    y2={edge.to.py}
-                    stroke="rgba(125,211,252,0.32)"
-                    strokeWidth="1.4"
-                  />
-                ))}
-
-              {mode === 'corridor' &&
-                corridors.map((corridor) => (
-                  <g key={`${corridor.fromId}-${corridor.toId}`}>
-                    <line
-                      x1={corridor.from.x}
-                      y1={corridor.from.y}
-                      x2={corridor.to.x}
-                      y2={corridor.to.y}
-                      stroke="url(#corridor-stroke)"
-                      strokeWidth={1.5 + corridor.weight * 1.2}
-                      strokeLinecap="round"
-                      opacity="0.75"
-                    />
-                    <circle
-                      cx={(corridor.from.x + corridor.to.x) / 2}
-                      cy={(corridor.from.y + corridor.to.y) / 2}
-                      r={2 + corridor.weight * 0.7}
-                      fill="#e879f9"
-                      opacity="0.65"
-                    />
-                  </g>
-                ))}
-
-              {positionedSystems.map((system) => (
-                <g key={system.id}>
-                  <circle
-                    cx={system.px}
-                    cy={system.py}
-                    r={mode === 'corridor' ? 2.4 : 3.2}
-                    fill={getRegionColor(system.regionId)}
-                    opacity={mode === 'network' ? 0.95 : 0.88}
-                  />
-                  <circle
-                    cx={system.px}
-                    cy={system.py}
-                    r={mode === 'network' ? 6 : 8}
-                    fill={getRegionColor(system.regionId)}
-                    opacity="0.08"
-                  />
-                </g>
-              ))}
-
-              {highlightedSystems.map((system, index) => (
-                <g key={`label-${system.id}`}>
-                  <circle
-                    cx={system.px}
-                    cy={system.py}
-                    r="5"
-                    fill="#f8fafc"
-                    opacity={index === 0 ? '0.95' : '0.78'}
-                  />
-                  <text
-                    x={system.px + 10}
-                    y={system.py - 10}
-                    fill="#e2e8f0"
-                    fontSize="12"
-                    fontWeight="600"
-                  >
-                    {system.name}
-                  </text>
-                </g>
-              ))}
-            </svg>
+            <OverviewCorridorDeck
+              systems={systems}
+              constellations={constellations}
+              gateLinks={gateLinks}
+              selectedCorridorKey={selectedCorridorKey}
+              onHoverCorridor={(corridor) => {
+                setHoveredCorridorKey(
+                  corridor != null ? `${corridor.fromId}-${corridor.toId}` : null
+                )
+              }}
+              onSelectCorridor={(corridor) => {
+                setSelectedCorridorKey(
+                  corridor != null ? `${corridor.fromId}-${corridor.toId}` : null
+                )
+              }}
+            />
           )}
         </div>
 
@@ -452,17 +392,127 @@ export default function OverviewMapLab({
           </article>
 
           <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-            {mode === 'spatial' && hoveredSystem ? (
+            {(mode === 'spatial' || mode === 'network') && (hoveredSystem ?? selectedSystem) ? (
               <div className="mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-sky-950/20 dark:text-slate-200">
                 <div className="text-xs uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
-                  Hovered system
+                  {hoveredSystem ? 'Hovered system' : 'Selected system'}
                 </div>
                 <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
-                  {hoveredSystem.name}
+                  {(hoveredSystem ?? selectedSystem)?.name}
                 </div>
                 <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  System #{hoveredSystem.id} · constellation {hoveredSystem.constellationId} ·
-                  region {hoveredSystem.regionId}
+                  System #{(hoveredSystem ?? selectedSystem)?.id} · constellation{' '}
+                  {(hoveredSystem ?? selectedSystem)?.constellationId} · region{' '}
+                  {(hoveredSystem ?? selectedSystem)?.regionId}
+                </div>
+              </div>
+            ) : null}
+            {mode === 'corridor' && selectedCorridor ? (
+              <div className="mb-4 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/20 dark:text-slate-200">
+                <div className="text-xs uppercase tracking-[0.24em] text-fuchsia-700 dark:text-fuchsia-300">
+                  Active corridor
+                </div>
+                <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                  {selectedCorridor.from.name} to {selectedCorridor.to.name}
+                </div>
+                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  {selectedCorridor.weight} aggregated gate links
+                </div>
+              </div>
+            ) : null}
+
+            {mode === 'network' ? (
+              <div className="mb-4 space-y-4">
+                <div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                    Search system
+                  </div>
+                  <input
+                    value={networkQuery}
+                    onChange={(event) => setNetworkQuery(event.target.value)}
+                    placeholder="Type 2+ chars"
+                    className="w-full rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
+                  />
+                  {filteredNetworkSystems.length > 0 ? (
+                    <div className="mt-2 grid gap-2">
+                      {filteredNetworkSystems.map((system) => (
+                        <button
+                          key={system.id}
+                          type="button"
+                          onClick={() => setSelectedSystemId(system.id)}
+                          className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
+                        >
+                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                            {system.name}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            degree {degreeMap.get(system.id) ?? 0}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                    Top hubs
+                  </div>
+                  <div className="grid gap-2">
+                    {topHubSystems.map((system, index) => (
+                      <button
+                        key={system.id}
+                        type="button"
+                        onClick={() => setSelectedSystemId(system.id)}
+                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
+                      >
+                        <div>
+                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                            {system.name}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            constellation {system.constellationId}
+                          </div>
+                        </div>
+                        <div className="rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                          #{index + 1} · {degreeMap.get(system.id) ?? 0}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {mode === 'corridor' ? (
+              <div className="mb-4 space-y-3">
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  Top corridors
+                </div>
+                <div className="grid gap-2">
+                  {corridors.slice(0, 5).map((corridor) => {
+                    const corridorKey = `${corridor.fromId}-${corridor.toId}`
+
+                    return (
+                      <button
+                        key={corridorKey}
+                        type="button"
+                        onClick={() => setSelectedCorridorKey(corridorKey)}
+                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-fuchsia-300 dark:border-slate-800 dark:bg-slate-950/50"
+                      >
+                        <div>
+                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                            {corridor.from.name} to {corridor.to.name}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            regions {corridor.from.regionId} / {corridor.to.regionId}
+                          </div>
+                        </div>
+                        <div className="rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                          {corridor.weight}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ) : null}
