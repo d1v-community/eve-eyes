@@ -43,6 +43,8 @@ export default function AtlasSystemDetails({
   onSetOrigin,
   onSetDestination,
 }: Props) {
+  const showEmpty = !isLoading && error == null && system == null
+
   return (
     <div className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
       <div className="mb-4 flex items-center gap-3">
@@ -58,9 +60,21 @@ export default function AtlasSystemDetails({
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <Route className="h-4 w-4 animate-pulse" />
-          Loading node details...
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <Route className="h-4 w-4 animate-pulse" />
+            Loading node details...
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sds-skeleton h-16 rounded-2xl" />
+            <div className="sds-skeleton h-16 rounded-2xl" />
+            <div className="sds-skeleton h-16 rounded-2xl" />
+          </div>
+          <div className="sds-skeleton h-20 rounded-2xl" />
+          <div className="grid gap-2">
+            <div className="sds-skeleton h-24 rounded-2xl" />
+            <div className="sds-skeleton h-24 rounded-2xl" />
+          </div>
         </div>
       ) : null}
 
@@ -142,6 +156,13 @@ export default function AtlasSystemDetails({
               </div>
             )}
           </div>
+        </div>
+      ) : null}
+
+      {showEmpty ? (
+        <div className="rounded-[1.2rem] border border-dashed border-slate-300 px-4 py-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">
+          Hover any system for preview, then click to lock focus and load its gate
+          neighbors. This panel becomes your local sector briefing.
         </div>
       ) : null}
     </div>

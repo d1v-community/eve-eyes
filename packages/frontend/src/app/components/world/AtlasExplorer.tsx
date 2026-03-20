@@ -104,6 +104,29 @@ function MetricCard({
   )
 }
 
+function EmptyPulseCard({
+  title,
+  body,
+}: {
+  title: string
+  body: string
+}) {
+  return (
+    <div className="rounded-[1.2rem] border border-dashed border-slate-300 bg-white/60 px-4 py-4 dark:border-slate-700 dark:bg-slate-950/30">
+      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        {title}
+      </div>
+      <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+        {body}
+      </div>
+      <div className="mt-4 grid gap-2">
+        <div className="sds-skeleton h-2.5 w-4/5 rounded-full" />
+        <div className="sds-skeleton h-2.5 w-3/5 rounded-full" />
+      </div>
+    </div>
+  )
+}
+
 export default function AtlasExplorer({
   systems,
   constellations,
@@ -167,6 +190,24 @@ export default function AtlasExplorer({
   const routeDensityLabel = route
     ? `${route.hops} hops across ${route.path.length} systems`
     : 'Route overlay inactive'
+
+  const routeConstellationCount = useMemo(() => {
+    if (route == null) return 0
+    return new Set(route.path.map((system) => system.constellationId)).size
+  }, [route])
+
+  const routeRegionCount = useMemo(() => {
+    if (route == null) return 0
+    return new Set(route.path.map((system) => system.regionId)).size
+  }, [route])
+
+  const selectedConstellation = useMemo(() => {
+    if (selectedSystem == null) return null
+    return (
+      constellations.find((constellation) => constellation.id === selectedSystem.constellationId) ??
+      null
+    )
+  }, [constellations, selectedSystem])
 
   useEffect(() => {
     if (selectedSystem == null) {
@@ -456,6 +497,12 @@ export default function AtlasExplorer({
             </button>
           </div>
 
+          {route == null ? (
+            <div className="mb-3 rounded-[1rem] border border-dashed border-slate-300/80 bg-white/55 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-400">
+              Route-only focus unlocks after the first route is calculated.
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-[1.65rem] border border-slate-200/70 dark:border-slate-800">
             <OverviewSpatialAtlas
               systems={systems}
@@ -509,6 +556,57 @@ export default function AtlasExplorer({
               </div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 Visible route nodes currently promoted above the starfield.
+              </div>
+            </article>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+            <article className="rounded-[1.35rem] border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                Navigation band
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
+                  Region {selectedSystem?.regionId ?? 'N/A'}
+                </div>
+                <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
+                  Constellation {selectedSystem?.constellationId ?? 'N/A'}
+                </div>
+                {selectedConstellation ? (
+                  <div className="rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1.5 text-xs text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200">
+                    {selectedConstellation.name}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                当前焦点落在
+                {selectedSystem
+                  ? ` region ${selectedSystem.regionId} / constellation ${selectedSystem.constellationId}`
+                  : ' 未选定区域'}
+                ，用于补足地图上的空间认知层。
+              </div>
+            </article>
+            <article className="rounded-[1.35rem] border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                Route spread
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200/70 bg-white/85 p-3 dark:border-slate-800 dark:bg-slate-950/55">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Regions
+                  </div>
+                  <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                    {routeRegionCount}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white/85 p-3 dark:border-slate-800 dark:bg-slate-950/55">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Constellations
+                  </div>
+                  <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+                    {routeConstellationCount}
+                  </div>
+                </div>
               </div>
             </article>
           </div>
@@ -610,9 +708,11 @@ export default function AtlasExplorer({
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-[1.2rem] border border-dashed border-slate-300 px-4 py-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                Search two systems to project a route. Once calculated, every stop
-                becomes clickable and the camera can jump directly to it.
+              <div className="mt-4">
+                <EmptyPulseCard
+                  title="Route standby"
+                  body="Search two systems to project a route. Once calculated, every stop becomes clickable and the camera can jump directly to it."
+                />
               </div>
             )}
           </div>
