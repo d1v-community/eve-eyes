@@ -70,11 +70,11 @@ export default function SystemSearchInput({
 
   return (
     <div className="relative flex flex-col gap-2">
-      <label className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+      <label className="text-[10px] uppercase tracking-[0.34em] text-stone-300/70 dark:text-slate-400">
         {label}
       </label>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-200/70" />
         <input
           aria-autocomplete="list"
           aria-controls={listId}
@@ -87,16 +87,16 @@ export default function SystemSearchInput({
             }
           }}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-slate-200/80 bg-white/85 px-10 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
+          className="w-full rounded-[1.2rem] border border-stone-200/12 bg-white/8 px-10 py-3 text-sm text-stone-50 outline-none transition placeholder:text-stone-300/35 focus:border-amber-300/60 focus:bg-white/10 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
         />
         {isLoading ? (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-amber-200/70" />
         ) : null}
       </div>
       {results.length > 0 ? (
         <div
           id={listId}
-          className="absolute top-full z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-[0_20px_50px_rgba(15,23,42,0.15)] dark:border-slate-800 dark:bg-slate-950/95"
+          className="absolute top-full z-20 mt-2 max-h-64 w-full overflow-auto rounded-[1.3rem] border border-amber-200/15 bg-[#0d1824]/96 p-2 shadow-[0_20px_50px_rgba(7,17,28,0.35)]"
         >
           {results.map((system) => (
             <button
@@ -106,12 +106,12 @@ export default function SystemSearchInput({
                 onSelect(system)
                 setResults([])
               }}
-              className="flex w-full flex-col rounded-xl px-3 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-900"
+              className="flex w-full flex-col rounded-xl px-3 py-2 text-left transition hover:bg-white/6"
             >
-              <span className="font-medium text-slate-900 dark:text-slate-100">
+              <span className="font-medium text-stone-50">
                 {system.name}
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-xs text-stone-300/60">
                 #{system.id} · constellation {system.constellationId} · region{' '}
                 {system.regionId}
               </span>

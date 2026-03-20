@@ -1,6 +1,6 @@
-import Link from 'next/link'
-import { Activity, Boxes, Orbit, ShieldCheck } from 'lucide-react'
+import { Activity, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
+import OverviewModuleGrid from './components/world/OverviewModuleGrid'
 import OverviewMapLab from './components/world/OverviewMapLab'
 import { getModuleCallCounts } from './server/indexer/repository.mjs'
 import { getSqlClient } from './server/db/client.mjs'
@@ -11,7 +11,6 @@ import {
   listConstellations,
   listSolarSystems,
 } from './world/api'
-import { productRoadmap } from './world/roadmap'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 
@@ -33,6 +32,9 @@ export default async function Home() {
 
   const sampleSystems = solarSystemsResult.data?.data ?? []
   const sampleConstellations = constellationsResult.data?.data ?? []
+  const totalSystems = solarSystemsResult.data?.metadata.total ?? 0
+  const totalConstellations = constellationsResult.data?.metadata.total ?? 0
+  const signingKey = configResult.data?.[0]?.podPublicSigningKey
   const detailResults = await Promise.all(
     sampleSystems.slice(0, 12).map((system) => getSolarSystem(system.id))
   )
@@ -75,151 +77,164 @@ export default async function Home() {
     })
   }
 
-  const overviewCards = [
-    {
-      title: 'Atlas',
-      href: '/atlas',
-      detail: 'Search start and destination systems, then compute a gate route on the server.',
-    },
-    {
-      title: 'Verify',
-      href: '/verify',
-      detail: 'Generate POD-backed cards and share them with a verification trail.',
-    },
-    {
-      title: 'Fleet',
-      href: '/fleet',
-      detail: 'Turn ship stats into a clean comparison surface for planning.',
-    },
-    {
-      title: 'Codex',
-      href: '/codex',
-      detail: 'Browse item types with logistics-relevant metadata first.',
-    },
-    {
-      title: 'Tribes',
-      href: '/tribes',
-      detail: 'Keep a compact intel board for tribe tags, tax, and links.',
-    },
-    {
-      title: 'Jumps',
-      href: '/jumps',
-      detail: 'Gracefully unlock private travel history when the server token exists.',
-    },
-  ] as const
-
   return (
     <>
       {/* <EnvConfigWarning /> */}
       <NetworkSupportChecker />
       <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-        <section className="grid gap-4 rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(77,162,255,0.18),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.9))] p-6 shadow-[0_24px_80px_rgba(15,23,42,0.1)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_32%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(15,23,42,0.82))] md:grid-cols-[1.15fr_0.85fr] md:p-8">
-          <div className="space-y-5">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.3em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200">
-              World API cockpit
-            </div>
-            <div className="space-y-3">
-              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-5xl">
-                A multi-page frontend for route search, verified cards, and
-                game intelligence.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
-                The product surface is now organized by task. Overview stays
-                lightweight, while Atlas, Verify, Fleet, Codex, Tribes, Jumps,
-                and TODO each get their own page.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {productRoadmap.map((item) => (
-                <article
-                  key={item.title}
-                  className="rounded-3xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-950/50"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h2 className="text-base font-medium text-slate-900 dark:text-slate-100">
-                      {item.title}
-                    </h2>
-                    <span className="rounded-full border border-slate-200/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                      {item.status}
-                    </span>
+        <section className="overflow-hidden rounded-[2.2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_30%),radial-gradient(circle_at_85%_15%,_rgba(56,189,248,0.14),_transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.92))] p-4 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(29,78,216,0.18),_transparent_20%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,0.88))] md:p-6">
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[1.9rem] border border-slate-200/70 bg-white/60 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/40 md:p-7">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.32em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200">
+                  World API cockpit
+                </span>
+                <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {healthResult.error == null ? 'Network live' : 'Needs attention'}
+                </span>
+              </div>
+
+              <div className="mt-5 max-w-3xl">
+                <h1 className="text-4xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-6xl">
+                  Route planning,
+                  <br />
+                  verification, and
+                  <br />
+                  live intel in one surface.
+                </h1>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
+                  Built like an operator console instead of a brochure:
+                  fast-entry modules, system reach, and trust signals surfaced
+                  before you click through.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
+                <div className="group rounded-[1.45rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.82))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_16px_36px_rgba(56,189,248,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.72),rgba(15,23,42,0.64))] dark:hover:border-sky-800">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Universe reach
+                    </div>
+                    <Orbit className="h-4 w-4 text-slate-500 transition group-hover:rotate-12 group-hover:text-sky-500 dark:text-slate-300 dark:group-hover:text-sky-300" />
                   </div>
-                  <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    {item.description}
-                  </p>
-                </article>
-              ))}
+                  <div className="mt-4 flex items-end gap-4">
+                    <div>
+                      <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {numberFormatter.format(totalSystems)}
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                        Systems
+                      </div>
+                    </div>
+                    <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div>
+                      <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {numberFormatter.format(totalConstellations)}
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                        Constellations
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group rounded-[1.45rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(239,246,255,0.82))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_16px_36px_rgba(56,189,248,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.72),rgba(15,23,42,0.64))] dark:hover:border-sky-800">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Trust signal
+                    </div>
+                    <ShieldCheck className="h-4 w-4 text-slate-500 transition group-hover:scale-110 group-hover:text-sky-500 dark:text-slate-300 dark:group-hover:text-sky-300" />
+                  </div>
+                  <div className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                    {signingKey?.slice(0, 12) ?? 'Unavailable'}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    {signingKey
+                      ? 'POD verification key online.'
+                      : configResult.error ?? 'Signing configuration missing.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <article className="group relative overflow-hidden rounded-[1.9rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(240,249,255,0.88))] p-5 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_22px_60px_rgba(14,165,233,0.14)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.86),rgba(8,47,73,0.45))] dark:hover:border-sky-700">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent opacity-70" />
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                      Live telemetry
+                    </div>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      Runtime panel
+                    </h2>
+                  </div>
+                  <div className="rounded-2xl border border-sky-200/80 bg-sky-50/80 p-3 text-sky-700 transition group-hover:rotate-6 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
+                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Health
+                    </div>
+                    <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      {healthResult.error == null ? 'Healthy' : 'Attention'}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                      {healthResult.error ?? 'API reachable and ready.'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
+                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Coverage
+                    </div>
+                    <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      6 modules
+                    </div>
+                    <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                      Atlas, verify, fleet, codex, tribes, and jumps.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                        Operator note
+                      </div>
+                      <div className="mt-2 max-w-md text-sm leading-6 text-slate-700 dark:text-slate-200">
+                        Entry points below are intentionally compact: one signal, one note, one click path.
+                      </div>
+                    </div>
+                    <div className="hidden h-12 w-12 rounded-full border border-sky-200/70 bg-sky-50/75 sm:flex sm:items-center sm:justify-center dark:border-sky-900/70 dark:bg-sky-950/30">
+                      <Activity className="h-5 w-5 text-sky-600 dark:text-sky-300" />
+                    </div>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <article className="rounded-3xl border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  Health
-                </span>
-                <Activity className="h-5 w-5 text-slate-700 dark:text-slate-100" />
-              </div>
-              <div className="text-3xl font-semibold text-slate-950 dark:text-white">
-                {healthResult.error == null ? 'Healthy' : 'Attention'}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                {healthResult.error ?? 'World API reachable and ready for page-level feature loading.'}
-              </p>
-            </article>
-            <article className="rounded-3xl border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  Universe
-                </span>
-                <Orbit className="h-5 w-5 text-slate-700 dark:text-slate-100" />
-              </div>
-              <div className="text-3xl font-semibold text-slate-950 dark:text-white">
-                {solarSystemsResult.data?.metadata.total
-                  ? `${numberFormatter.format(solarSystemsResult.data.metadata.total)} systems`
-                  : 'Unavailable'}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                {constellationsResult.data?.metadata.total
-                  ? `${numberFormatter.format(constellationsResult.data.metadata.total)} constellations available for atlas and routing context.`
-                  : constellationsResult.error ?? 'Constellation data unavailable'}
-              </p>
-            </article>
-            <article className="rounded-3xl border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  Verify
-                </span>
-                <ShieldCheck className="h-5 w-5 text-slate-700 dark:text-slate-100" />
-              </div>
-              <div className="text-3xl font-semibold text-slate-950 dark:text-white">
-                {configResult.data?.[0]?.podPublicSigningKey?.slice(0, 12) ??
-                  'Unavailable'}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                POD signing key is exposed on overview so operators can spot environment issues early.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {overviewCards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_24px_70px_rgba(14,165,233,0.12)] dark:border-slate-800 dark:bg-slate-950/75 dark:hover:border-sky-700"
-            >
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-2xl font-semibold text-slate-950 dark:text-white">
-                  {card.title}
+          <div className="mt-4 rounded-[1.9rem] border border-slate-200/70 bg-white/48 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-800 dark:bg-slate-950/28 md:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                  Modules
+                </div>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  Entry matrix
                 </h2>
-                <Boxes className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               </div>
-              <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
-                {card.detail}
-              </p>
-            </Link>
-          ))}
+              <div className="hidden rounded-full border border-slate-200/80 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/45 dark:text-slate-300 md:inline-flex">
+                Direct jump
+              </div>
+            </div>
+            <OverviewModuleGrid />
+          </div>
         </section>
 
         <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">

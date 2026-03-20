@@ -15,7 +15,7 @@ import {
   TimerReset,
   Wallet,
 } from 'lucide-react'
-import { startTransition, useEffect, useEffectEvent, useState } from 'react'
+import { startTransition, useCallback, useEffect, useState } from 'react'
 
 type AuthUser = {
   id: string
@@ -91,7 +91,7 @@ export default function JumpsAccessPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const loadSession = useEffectEvent(async () => {
+  const loadSession = useCallback(async () => {
     setIsRefreshing(true)
 
     try {
@@ -113,9 +113,9 @@ export default function JumpsAccessPanel() {
       setIsRefreshing(false)
       setIsBootstrapping(false)
     }
-  })
+  }, [])
 
-  const loadApiKeys = useEffectEvent(async () => {
+  const loadApiKeys = useCallback(async () => {
     const response = await fetch('/api/auth/api-keys', {
       cache: 'no-store',
     })
@@ -127,7 +127,7 @@ export default function JumpsAccessPanel() {
 
     const payload = await parseJsonResponse(response)
     setApiKeys(payload.apiKeys ?? [])
-  })
+  }, [])
 
   useEffect(() => {
     startTransition(() => {
@@ -147,7 +147,7 @@ export default function JumpsAccessPanel() {
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load API keys')
       })
     })
-  }, [loadApiKeys, user?.id])
+  }, [loadApiKeys, user])
 
   async function handleLogin() {
     if (!currentAccount?.address) {
