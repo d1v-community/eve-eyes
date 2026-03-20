@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "node ./src/main.mjs",
-    "once": "INDEXER_RUN_ONCE=true node ./src/main.mjs"
+    "once": "INDEXER_RUN_ONCE=true node ./src/main.mjs",
+    "pipeline": "node ./scripts/pipeline.mjs",
+    "db:import:suiscan": "node ./scripts/import-suiscan-csv.mjs",
+    "db:sync:suiscan-rpc": "node ./scripts/sync-suiscan-rpc.mjs",
+    "db:watch:suiscan-rpc": "node ./scripts/watch-sync-suiscan-rpc.mjs",
+    "db:sync:transaction-block-move-calls": "node ./scripts/sync-transaction-block-move-calls.mjs",
+    "db:watch:transaction-block-move-calls": "node ./scripts/watch-transaction-block-move-calls.mjs"
   },
   "dependencies": {
     "@mysten/sui": "^1.45.2",

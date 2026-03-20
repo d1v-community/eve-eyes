@@ -1,8 +1,8 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadProjectEnv } from './load-env.mjs'
-import { createSqlClient } from '../src/app/server/db/client.mjs'
-import { runPendingMigrations } from '../src/app/server/db/migrations.mjs'
+import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
+import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
 import {
   createRpcPool,
   extractMoveCalls,
@@ -10,25 +10,18 @@ import {
 } from './sui-rpc-sync-helpers.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
-const projectRoot = path.resolve(scriptDirectory, '..')
-const repoRoot = path.resolve(projectRoot, '..', '..')
-const migrationsDirectory = path.join(projectRoot, 'db', 'migrations')
+const packageRoot = path.resolve(scriptDirectory, '..')
+const repoRoot = path.resolve(packageRoot, '..', '..')
+const frontendRoot = path.join(repoRoot, 'packages', 'frontend')
+const migrationsDirectory = path.join(frontendRoot, 'db', 'migrations')
 
-async function fetchUnsyncedRows(sql, limit) {
+async function fetchTxRows(sql, limit) {
   return sql`
-    SELECT unsynced.digest
-    FROM (
-      SELECT t.digest, MIN(t.created_at) AS first_seen_at
-      FROM transaction_blocks AS t
-      WHERE t.digest IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1
-          FROM suiscan_move_calls AS s
-          WHERE s.tx_digest = t.digest
-        )
-      GROUP BY t.digest
-    ) AS unsynced
-    ORDER BY unsynced.first_seen_at ASC
+    SELECT tx_digest
+    FROM suiscan_records
+    WHERE record_type = 'tx'
+      AND tx_status IS NULL
+    ORDER BY created_at ASC
     LIMIT ${limit}
   `
 }
@@ -43,20 +36,24 @@ async function syncDigest(sql, rpcPool, txDigest) {
     },
   })
 
+  const txStatus = result?.effects?.status?.status ?? null
   const moveCalls = extractMoveCalls(result)
 
-  if (moveCalls.length === 0) {
-    return {
-      moveCallCount: 0,
-      rpcUrl,
-    }
-  }
-
   await sql.begin(async (transaction) => {
+    await transaction`
+      UPDATE suiscan_records
+      SET tx_status = ${txStatus}
+      WHERE tx_digest = ${txDigest}
+    `
+
     await transaction`
       DELETE FROM suiscan_move_calls
       WHERE tx_digest = ${txDigest}
     `
+
+    if (moveCalls.length === 0) {
+      return
+    }
 
     const values = []
     const placeholders = moveCalls.map((moveCall, rowIndex) => {
@@ -90,6 +87,7 @@ async function syncDigest(sql, rpcPool, txDigest) {
   })
 
   return {
+    txStatus,
     moveCallCount: moveCalls.length,
     rpcUrl,
   }
@@ -97,9 +95,10 @@ async function syncDigest(sql, rpcPool, txDigest) {
 
 async function main() {
   await loadProjectEnv(repoRoot)
-  await loadProjectEnv(projectRoot)
+  await loadProjectEnv(packageRoot)
+  await loadProjectEnv(frontendRoot)
 
-  const limit = Number.parseInt(process.argv[2] ?? '500', 10)
+  const limit = Number.parseInt(process.argv[2] ?? '100', 10)
   const concurrency = Number.parseInt(process.argv[3] ?? '5', 10)
 
   if (Number.isNaN(limit) || limit <= 0) {
@@ -116,19 +115,29 @@ async function main() {
   try {
     await runPendingMigrations(sql, migrationsDirectory)
 
-    const txRows = await fetchUnsyncedRows(sql, limit)
+    const txRows = await fetchTxRows(sql, limit)
     let syncedCount = 0
+    let successCount = 0
+    let failureCount = 0
     let moveCallCount = 0
     const rpcUsage = new Map()
 
     await runWithConcurrency(txRows, concurrency, async (row) => {
-      const result = await syncDigest(sql, rpcPool, row.digest)
+      const result = await syncDigest(sql, rpcPool, row.tx_digest)
       syncedCount += 1
       moveCallCount += result.moveCallCount
       rpcUsage.set(result.rpcUrl, (rpcUsage.get(result.rpcUrl) ?? 0) + 1)
+
+      if (result.txStatus === 'success') {
+        successCount += 1
+      } else if (result.txStatus) {
+        failureCount += 1
+      }
     })
 
-    console.log(`unsynced_digests_processed: ${syncedCount}`)
+    console.log(`synced: ${syncedCount}`)
+    console.log(`success: ${successCount}`)
+    console.log(`failure_or_other: ${failureCount}`)
     console.log(`move_calls: ${moveCallCount}`)
     console.log(`concurrency: ${concurrency}`)
     console.log(`rpc_urls: ${rpcPool.urls.join(', ')}`)

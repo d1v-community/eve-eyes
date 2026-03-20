@@ -13,6 +13,7 @@ node_modules
 !.vscode/extensions.json
 idea
 packages/frontend/.env
+packages/indexer/.env
 .pnpm-store
 # Arweave
 arweave-keyfile*

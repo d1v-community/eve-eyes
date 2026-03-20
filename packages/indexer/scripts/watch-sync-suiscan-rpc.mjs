@@ -3,31 +3,13 @@ import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { loadProjectEnv } from './load-env.mjs'
-import { createSqlClient } from '../src/app/server/db/client.mjs'
+import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
+import { createLogger } from './sui-rpc-sync-helpers.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
-const projectRoot = path.resolve(scriptDirectory, '..')
-const repoRoot = path.resolve(projectRoot, '..', '..')
-const syncScriptPath = path.join(projectRoot, 'scripts', 'sync-suiscan-rpc.mjs')
-
-function createLogger(scope) {
-  return {
-    info(message, details) {
-      if (details === undefined) {
-        console.log(`[${scope}] ${message}`)
-        return
-      }
-
-      console.log(`[${scope}] ${message}`, details)
-    },
-    error(message, error) {
-      console.error(
-        `[${scope}] ${message}`,
-        error instanceof Error ? error.stack ?? error.message : error
-      )
-    },
-  }
-}
+const packageRoot = path.resolve(scriptDirectory, '..')
+const repoRoot = path.resolve(packageRoot, '..', '..')
+const syncScriptPath = path.join(packageRoot, 'scripts', 'sync-suiscan-rpc.mjs')
 
 async function getProgressSnapshot() {
   const sql = createSqlClient()
@@ -60,7 +42,7 @@ function startSyncProcess(limit, concurrency, logger) {
     process.execPath,
     [syncScriptPath, String(limit), String(concurrency)],
     {
-      cwd: projectRoot,
+      cwd: packageRoot,
       stdio: 'inherit',
       env: process.env,
     }
@@ -96,7 +78,7 @@ async function stopSyncProcess(child, logger) {
 
 async function main() {
   await loadProjectEnv(repoRoot)
-  await loadProjectEnv(projectRoot)
+  await loadProjectEnv(packageRoot)
 
   const logger = createLogger('watch-sync-suiscan-rpc')
   const limit = Number.parseInt(process.argv[2] ?? '20000', 10)

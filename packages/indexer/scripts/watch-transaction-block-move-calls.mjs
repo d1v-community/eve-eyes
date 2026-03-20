@@ -3,37 +3,29 @@ import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { loadProjectEnv } from './load-env.mjs'
-import { createSqlClient } from '../src/app/server/db/client.mjs'
+import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { createLogger } from './sui-rpc-sync-helpers.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
-const projectRoot = path.resolve(scriptDirectory, '..')
-const repoRoot = path.resolve(projectRoot, '..', '..')
+const packageRoot = path.resolve(scriptDirectory, '..')
+const repoRoot = path.resolve(packageRoot, '..', '..')
 const syncScriptPath = path.join(
-  projectRoot,
+  packageRoot,
   'scripts',
   'sync-transaction-block-move-calls.mjs'
 )
 
-async function getUnsyncedDigestCount() {
+async function getPendingDigestCount() {
   const sql = createSqlClient()
 
   try {
     const rows = await sql`
-      SELECT COUNT(*)::int AS unsynced_count
-      FROM (
-        SELECT DISTINCT t.digest
-        FROM transaction_blocks AS t
-        WHERE t.digest IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1
-            FROM suiscan_move_calls AS s
-            WHERE s.tx_digest = t.digest
-          )
-      ) AS unsynced_digests
+      SELECT COUNT(*)::int AS pending_count
+      FROM transaction_blocks AS t
+      WHERE t.move_calls_synced_at IS NULL
     `
 
-    return rows[0]?.unsynced_count ?? 0
+    return rows[0]?.pending_count ?? 0
   } finally {
     await sql.end({ timeout: 5 })
   }
@@ -44,7 +36,7 @@ function startSyncProcess(limit, concurrency, logger) {
     process.execPath,
     [syncScriptPath, String(limit), String(concurrency)],
     {
-      cwd: projectRoot,
+      cwd: packageRoot,
       stdio: 'inherit',
       env: process.env,
     }
@@ -61,7 +53,7 @@ function startSyncProcess(limit, concurrency, logger) {
 
 async function main() {
   await loadProjectEnv(repoRoot)
-  await loadProjectEnv(projectRoot)
+  await loadProjectEnv(packageRoot)
 
   const logger = createLogger('watch-transaction-block-move-calls')
   const limit = Number.parseInt(process.argv[2] ?? '500', 10)
@@ -96,15 +88,15 @@ async function main() {
   })
 
   while (true) {
-    const unsyncedCount = await getUnsyncedDigestCount()
+    const pendingCount = await getPendingDigestCount()
 
-    logger.info('unsynced digest check', {
-      unsyncedCount,
+    logger.info('pending digest check', {
+      pendingCount,
       processRunning: Boolean(child && child.exitCode === null && !child.killed),
     })
 
     if (
-      unsyncedCount > 0 &&
+      pendingCount > 0 &&
       (!child || child.exitCode !== null || child.killed)
     ) {
       child = startSyncProcess(limit, concurrency, logger)

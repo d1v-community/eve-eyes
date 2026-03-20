@@ -2,13 +2,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadProjectEnv } from './load-env.mjs'
-import { createSqlClient } from '../src/app/server/db/client.mjs'
-import { runPendingMigrations } from '../src/app/server/db/migrations.mjs'
+import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
+import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
-const projectRoot = path.resolve(scriptDirectory, '..')
-const repoRoot = path.resolve(projectRoot, '..', '..')
-const migrationsDirectory = path.join(projectRoot, 'db', 'migrations')
+const packageRoot = path.resolve(scriptDirectory, '..')
+const repoRoot = path.resolve(packageRoot, '..', '..')
+const frontendRoot = path.join(repoRoot, 'packages', 'frontend')
+const migrationsDirectory = path.join(frontendRoot, 'db', 'migrations')
 const defaultCsvPath = path.join(repoRoot, '..', 'suiscan.cleaned.csv')
 
 function parseCsvLine(line) {
@@ -193,7 +194,8 @@ async function importRecords(sql, records) {
 
 async function main() {
   await loadProjectEnv(repoRoot)
-  await loadProjectEnv(projectRoot)
+  await loadProjectEnv(packageRoot)
+  await loadProjectEnv(frontendRoot)
 
   const csvPathArgument = process.argv[2]
   const csvPath = path.resolve(

@@ -6,6 +6,7 @@ Standalone Node.js worker that:
 - uses those events to discover candidate transactions
 - fetches full transaction blocks
 - upserts them into `transaction_blocks`
+- marks move-call sync completion in `transaction_blocks.move_calls_synced_at`
 - stores sync progress in a local state file
 
 ## Run
@@ -14,6 +15,12 @@ From the repository root:
 
 ```bash
 pnpm indexer:start
+```
+
+Run the live ingest + move-call sync pipeline:
+
+```bash
+pnpm indexer:pipeline
 ```
 
 Run a single polling cycle:

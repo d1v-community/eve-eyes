@@ -17,7 +17,7 @@ import {
   queryModuleEvents,
   resolvePackageModules,
 } from './sui.mjs'
-import { loadProjectEnv } from '../../frontend/scripts/load-env.mjs'
+import { loadProjectEnv } from '../scripts/load-env.mjs'
 import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
 
@@ -72,6 +72,7 @@ function createDigestCache(limit) {
 
 async function bootstrapEnv(config) {
   await loadProjectEnv(config.repoRoot)
+  await loadProjectEnv(config.packageRoot)
   await loadProjectEnv(config.frontendRoot)
 }
 
