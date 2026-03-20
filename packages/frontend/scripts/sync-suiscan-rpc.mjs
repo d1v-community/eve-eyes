@@ -52,6 +52,7 @@ async function fetchTxRows(sql, limit) {
     SELECT tx_digest
     FROM suiscan_records
     WHERE record_type = 'tx'
+      AND tx_status IS NULL
     ORDER BY created_at ASC
     LIMIT ${limit}
   `
@@ -123,14 +124,36 @@ async function syncDigest(sql, client, txDigest) {
   }
 }
 
+async function runWithConcurrency(items, concurrency, worker) {
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      await worker(items[currentIndex], currentIndex)
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length)
+  await Promise.all(
+    Array.from({ length: workerCount }, () => runWorker())
+  )
+}
+
 async function main() {
   await loadProjectEnv(repoRoot)
   await loadProjectEnv(projectRoot)
 
   const limit = Number.parseInt(process.argv[2] ?? '100', 10)
+  const concurrency = Number.parseInt(process.argv[3] ?? '5', 10)
 
   if (Number.isNaN(limit) || limit <= 0) {
     throw new Error('limit must be a positive integer')
+  }
+
+  if (Number.isNaN(concurrency) || concurrency <= 0) {
+    throw new Error('concurrency must be a positive integer')
   }
 
   const sql = createSqlClient()
@@ -145,7 +168,7 @@ async function main() {
     let failureCount = 0
     let moveCallCount = 0
 
-    for (const row of txRows) {
+    await runWithConcurrency(txRows, concurrency, async (row) => {
       const result = await syncDigest(sql, client, row.tx_digest)
       syncedCount += 1
       moveCallCount += result.moveCallCount
@@ -155,12 +178,13 @@ async function main() {
       } else if (result.txStatus) {
         failureCount += 1
       }
-    }
+    })
 
     console.log(`synced: ${syncedCount}`)
     console.log(`success: ${successCount}`)
     console.log(`failure_or_other: ${failureCount}`)
     console.log(`move_calls: ${moveCallCount}`)
+    console.log(`concurrency: ${concurrency}`)
   } finally {
     await sql.end({ timeout: 5 })
   }
