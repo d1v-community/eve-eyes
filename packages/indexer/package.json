@@ -1,0 +1,14 @@
+{
+  "name": "indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/main.mjs",
+    "once": "INDEXER_RUN_ONCE=true node ./src/main.mjs"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.45.2",
+    "postgres": "^3.4.8"
+  }
+}
