@@ -113,6 +113,7 @@ async function syncDigest(sql, txDigest, txBlock) {
       }
     }
 
+    const status = txBlock?.effects?.status?.status ?? null
     const moveCalls = extractMoveCalls(txBlock)
 
     await transaction`
@@ -120,7 +121,7 @@ async function syncDigest(sql, txDigest, txBlock) {
       WHERE tx_digest = ${txDigest}
     `
 
-    if (moveCalls.length > 0) {
+    if (status === 'success' && moveCalls.length > 0) {
       const values = []
       const placeholders = moveCalls.map((moveCall, rowIndex) => {
         const offset = rowIndex * 6
@@ -165,6 +166,7 @@ async function syncDigest(sql, txDigest, txBlock) {
     `
 
     return {
+      status,
       moveCallCount: moveCalls.length,
       skipped: false,
     }
@@ -205,6 +207,7 @@ async function main() {
     let syncedCount = 0
     let moveCallCount = 0
     let skippedCount = 0
+    let failedCount = 0
     let completedCount = 0
     const totalCount = txRows.length
 
@@ -238,7 +241,11 @@ async function main() {
         return
       }
       syncedCount += 1
-      moveCallCount += result.moveCallCount
+      if (result.status === 'success') {
+        moveCallCount += result.moveCallCount
+      } else {
+        failedCount += 1
+      }
       completedCount += 1
       renderProgress()
     })
@@ -247,6 +254,7 @@ async function main() {
 
     console.log(`synced: ${syncedCount}`)
     console.log(`move_calls: ${moveCallCount}`)
+    console.log(`failed: ${failedCount}`)
     console.log(`skipped: ${skippedCount}`)
     console.log(`total: ${totalCount}`)
     console.log(`concurrency: ${concurrency}`)
