@@ -15,21 +15,25 @@ const syncScriptPath = path.join(
   'sync-transaction-block-move-calls.mjs'
 )
 
-async function getPendingDigestCount() {
+async function getUnsyncedDigestCount() {
   const sql = createSqlClient()
 
   try {
     const rows = await sql`
-      SELECT COUNT(*)::int AS pending_count
-      FROM transaction_blocks AS t
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM suiscan_move_calls AS s
-        WHERE s.tx_digest = t.digest
-      )
+      SELECT COUNT(*)::int AS unsynced_count
+      FROM (
+        SELECT DISTINCT t.digest
+        FROM transaction_blocks AS t
+        WHERE t.digest IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM suiscan_move_calls AS s
+            WHERE s.tx_digest = t.digest
+          )
+      ) AS unsynced_digests
     `
 
-    return rows[0]?.pending_count ?? 0
+    return rows[0]?.unsynced_count ?? 0
   } finally {
     await sql.end({ timeout: 5 })
   }
@@ -92,15 +96,15 @@ async function main() {
   })
 
   while (true) {
-    const pendingCount = await getPendingDigestCount()
+    const unsyncedCount = await getUnsyncedDigestCount()
 
-    logger.info('pending digest check', {
-      pendingCount,
+    logger.info('unsynced digest check', {
+      unsyncedCount,
       processRunning: Boolean(child && child.exitCode === null && !child.killed),
     })
 
     if (
-      pendingCount > 0 &&
+      unsyncedCount > 0 &&
       (!child || child.exitCode !== null || child.killed)
     ) {
       child = startSyncProcess(limit, concurrency, logger)

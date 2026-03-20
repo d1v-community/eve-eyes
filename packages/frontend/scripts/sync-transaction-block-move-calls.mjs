@@ -14,16 +14,21 @@ const projectRoot = path.resolve(scriptDirectory, '..')
 const repoRoot = path.resolve(projectRoot, '..', '..')
 const migrationsDirectory = path.join(projectRoot, 'db', 'migrations')
 
-async function fetchPendingRows(sql, limit) {
+async function fetchUnsyncedRows(sql, limit) {
   return sql`
-    SELECT t.digest
-    FROM transaction_blocks AS t
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM suiscan_move_calls AS s
-      WHERE s.tx_digest = t.digest
-    )
-    ORDER BY t.created_at ASC
+    SELECT unsynced.digest
+    FROM (
+      SELECT t.digest, MIN(t.created_at) AS first_seen_at
+      FROM transaction_blocks AS t
+      WHERE t.digest IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM suiscan_move_calls AS s
+          WHERE s.tx_digest = t.digest
+        )
+      GROUP BY t.digest
+    ) AS unsynced
+    ORDER BY unsynced.first_seen_at ASC
     LIMIT ${limit}
   `
 }
@@ -111,7 +116,7 @@ async function main() {
   try {
     await runPendingMigrations(sql, migrationsDirectory)
 
-    const txRows = await fetchPendingRows(sql, limit)
+    const txRows = await fetchUnsyncedRows(sql, limit)
     let syncedCount = 0
     let moveCallCount = 0
     const rpcUsage = new Map()
@@ -123,7 +128,7 @@ async function main() {
       rpcUsage.set(result.rpcUrl, (rpcUsage.get(result.rpcUrl) ?? 0) + 1)
     })
 
-    console.log(`synced: ${syncedCount}`)
+    console.log(`unsynced_digests_processed: ${syncedCount}`)
     console.log(`move_calls: ${moveCallCount}`)
     console.log(`concurrency: ${concurrency}`)
     console.log(`rpc_urls: ${rpcPool.urls.join(', ')}`)
