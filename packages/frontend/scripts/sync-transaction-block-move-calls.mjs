@@ -14,13 +14,16 @@ const projectRoot = path.resolve(scriptDirectory, '..')
 const repoRoot = path.resolve(projectRoot, '..', '..')
 const migrationsDirectory = path.join(projectRoot, 'db', 'migrations')
 
-async function fetchTxRows(sql, limit) {
+async function fetchPendingRows(sql, limit) {
   return sql`
-    SELECT tx_digest
-    FROM suiscan_records
-    WHERE record_type = 'tx'
-      AND tx_status IS NULL
-    ORDER BY created_at ASC
+    SELECT t.digest
+    FROM transaction_blocks AS t
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM suiscan_move_calls AS s
+      WHERE s.tx_digest = t.digest
+    )
+    ORDER BY t.created_at ASC
     LIMIT ${limit}
   `
 }
@@ -35,24 +38,20 @@ async function syncDigest(sql, rpcPool, txDigest) {
     },
   })
 
-  const txStatus = result?.effects?.status?.status ?? null
   const moveCalls = extractMoveCalls(result)
 
-  await sql.begin(async (transaction) => {
-    await transaction`
-      UPDATE suiscan_records
-      SET tx_status = ${txStatus}
-      WHERE tx_digest = ${txDigest}
-    `
+  if (moveCalls.length === 0) {
+    return {
+      moveCallCount: 0,
+      rpcUrl,
+    }
+  }
 
+  await sql.begin(async (transaction) => {
     await transaction`
       DELETE FROM suiscan_move_calls
       WHERE tx_digest = ${txDigest}
     `
-
-    if (moveCalls.length === 0) {
-      return
-    }
 
     const values = []
     const placeholders = moveCalls.map((moveCall, rowIndex) => {
@@ -86,7 +85,6 @@ async function syncDigest(sql, rpcPool, txDigest) {
   })
 
   return {
-    txStatus,
     moveCallCount: moveCalls.length,
     rpcUrl,
   }
@@ -96,7 +94,7 @@ async function main() {
   await loadProjectEnv(repoRoot)
   await loadProjectEnv(projectRoot)
 
-  const limit = Number.parseInt(process.argv[2] ?? '100', 10)
+  const limit = Number.parseInt(process.argv[2] ?? '500', 10)
   const concurrency = Number.parseInt(process.argv[3] ?? '5', 10)
 
   if (Number.isNaN(limit) || limit <= 0) {
@@ -113,29 +111,19 @@ async function main() {
   try {
     await runPendingMigrations(sql, migrationsDirectory)
 
-    const txRows = await fetchTxRows(sql, limit)
+    const txRows = await fetchPendingRows(sql, limit)
     let syncedCount = 0
-    let successCount = 0
-    let failureCount = 0
     let moveCallCount = 0
     const rpcUsage = new Map()
 
     await runWithConcurrency(txRows, concurrency, async (row) => {
-      const result = await syncDigest(sql, rpcPool, row.tx_digest)
+      const result = await syncDigest(sql, rpcPool, row.digest)
       syncedCount += 1
       moveCallCount += result.moveCallCount
       rpcUsage.set(result.rpcUrl, (rpcUsage.get(result.rpcUrl) ?? 0) + 1)
-
-      if (result.txStatus === 'success') {
-        successCount += 1
-      } else if (result.txStatus) {
-        failureCount += 1
-      }
     })
 
     console.log(`synced: ${syncedCount}`)
-    console.log(`success: ${successCount}`)
-    console.log(`failure_or_other: ${failureCount}`)
     console.log(`move_calls: ${moveCallCount}`)
     console.log(`concurrency: ${concurrency}`)
     console.log(`rpc_urls: ${rpcPool.urls.join(', ')}`)
