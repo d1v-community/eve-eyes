@@ -2,7 +2,14 @@ import Link from 'next/link'
 import { Activity, Boxes, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
 import EnvConfigWarning from './components/EnvConfigWarning'
-import { getWorldConfig, getWorldHealth, listConstellations, listSolarSystems } from './world/api'
+import OverviewMapLab from './components/world/OverviewMapLab'
+import {
+  getSolarSystem,
+  getWorldConfig,
+  getWorldHealth,
+  listConstellations,
+  listSolarSystems,
+} from './world/api'
 import { apiCoverageTodo, productRoadmap } from './world/roadmap'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
@@ -12,9 +19,53 @@ export default async function Home() {
     await Promise.all([
       getWorldHealth(),
       getWorldConfig(),
-      listSolarSystems(),
-      listConstellations(),
+      listSolarSystems(36),
+      listConstellations(12),
     ])
+
+  const sampleSystems = solarSystemsResult.data?.data ?? []
+  const sampleConstellations = constellationsResult.data?.data ?? []
+  const detailResults = await Promise.all(
+    sampleSystems.slice(0, 12).map((system) => getSolarSystem(system.id))
+  )
+  const gateLinks = detailResults.flatMap((result, index) => {
+    const sourceSystem = sampleSystems[index]
+
+    if (result.data == null || sourceSystem == null) return []
+
+    return result.data.gateLinks.map((gate) => ({
+      fromId: sourceSystem.id,
+      toId: gate.destination.id,
+      toConstellationId: gate.destination.constellationId,
+    }))
+  })
+
+  const systemsForMap = new Map(sampleSystems.map((system) => [system.id, system]))
+
+  for (const result of detailResults) {
+    if (result.data == null) continue
+
+    systemsForMap.set(result.data.id, result.data)
+
+    for (const gate of result.data.gateLinks) {
+      systemsForMap.set(gate.destination.id, gate.destination)
+    }
+  }
+
+  const constellationsForMap = new Map(
+    sampleConstellations.map((constellation) => [constellation.id, constellation])
+  )
+
+  for (const system of systemsForMap.values()) {
+    if (constellationsForMap.has(system.constellationId)) continue
+
+    constellationsForMap.set(system.constellationId, {
+      id: system.constellationId,
+      name: `Constellation ${system.constellationId}`,
+      regionId: system.regionId,
+      location: system.location,
+    })
+  }
 
   const overviewCards = [
     {
@@ -162,6 +213,12 @@ export default async function Home() {
             </Link>
           ))}
         </section>
+
+        <OverviewMapLab
+          systems={[...systemsForMap.values()]}
+          constellations={[...constellationsForMap.values()]}
+          gateLinks={gateLinks}
+        />
 
         <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
           <div className="mb-4">

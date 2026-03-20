@@ -5,15 +5,10 @@ import { getSolarSystem, listSolarSystems, type SolarSystem } from './api'
 
 export type SystemDirectoryEntry = Pick<
   SolarSystem,
-  'id' | 'name' | 'constellationId' | 'regionId'
+  'id' | 'name' | 'constellationId' | 'regionId' | 'location'
 >
 
-export type SystemRouteNode = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-}
+export type SystemRouteNode = SystemDirectoryEntry
 
 type RouteSearchResult = {
   path: SystemRouteNode[]
@@ -99,6 +94,7 @@ async function getNeighbors(systemId: number): Promise<SystemRouteNode[]> {
           name: gate.destination.name,
           constellationId: gate.destination.constellationId,
           regionId: gate.destination.regionId,
+          location: gate.destination.location,
         }))
       })
     )
@@ -139,6 +135,7 @@ function buildPath(
       name: system.name,
       constellationId: system.constellationId,
       regionId: system.regionId,
+      location: system.location,
     }))
 }
 
@@ -160,6 +157,7 @@ export async function findRoute(originId: number, destinationId: number) {
           name: system.name,
           constellationId: system.constellationId,
           regionId: system.regionId,
+          location: system.location,
         },
       ],
       hops: 0,
