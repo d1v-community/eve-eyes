@@ -9,7 +9,35 @@ Standalone Node.js worker that:
 - marks move-call sync completion in `transaction_blocks.move_calls_synced_at`
 - stores sync progress in a local state file
 
-## Run
+## What To Run
+
+If you need to continuously:
+
+- ingest the latest on-chain package-related transactions into `transaction_blocks`
+- parse newly stored transactions into Move calls in `suiscan_move_calls`
+
+run:
+
+```bash
+pnpm indexer:pipeline
+```
+
+This starts two long-running processes:
+
+- `packages/indexer/src/main.mjs`: chain listener and `transaction_blocks` writer
+- `packages/indexer/scripts/watch-transaction-block-move-calls.mjs`: move-call sync watcher
+
+If you prefer to run them separately, use two terminals:
+
+```bash
+pnpm indexer:start
+```
+
+```bash
+pnpm --filter indexer run db:watch:transaction-block-move-calls
+```
+
+## Other Commands
 
 From the repository root:
 
@@ -28,6 +56,31 @@ Run a single polling cycle:
 ```bash
 pnpm indexer:once
 ```
+
+Run a one-off move-call backfill from existing `transaction_blocks` rows:
+
+```bash
+pnpm --filter indexer run db:sync:transaction-block-move-calls
+```
+
+Import historical Suiscan CSV data:
+
+```bash
+pnpm --filter indexer run db:import:suiscan /path/to/file.csv
+```
+
+## Idempotency And Concurrency
+
+- `transaction_blocks` is protected by a unique index on `(network, digest)`, and the indexer uses `ON CONFLICT DO UPDATE`, so reruns do not create duplicate rows.
+- `suiscan_move_calls` is protected by a unique index on `(tx_digest, call_index)`.
+- Move-call sync marks completion in `transaction_blocks.move_calls_synced_at`, so transactions with zero Move calls are still treated as processed and are not retried forever.
+- Move-call sync also uses a PostgreSQL advisory lock per digest, so concurrent sync workers do not process the same digest at the same time.
+
+## Important Operational Note
+
+- Run only one `indexer:start` or `indexer:pipeline` instance at a time.
+- Reason: the main indexer cursor is stored in a local state file, not in the database, so multiple main indexer processes can overwrite each other's cursor progress.
+- Running an extra move-call sync worker is much safer than running an extra main indexer, but still unnecessary in normal operation.
 
 ## Optional env
 

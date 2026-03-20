@@ -196,6 +196,35 @@ Current database behavior:
 - Wallet connect will create or update a user by `wallet_address`.
 - The API stores `wallet_address`, `wallet_name`, `chain`, and `last_seen_at`.
 
+### Live indexing pipeline
+
+If you want to continuously ingest on-chain transactions and also continuously parse newly stored transactions into Move calls, run this from the repo root:
+
+```bash
+pnpm indexer:pipeline
+```
+
+This starts:
+
+- the main indexer, which writes to `transaction_blocks`
+- the move-call watcher, which reads new `transaction_blocks` rows and writes to `suiscan_move_calls`
+
+If you want to run them separately, use two terminals:
+
+```bash
+pnpm indexer:start
+```
+
+```bash
+pnpm --filter indexer run db:watch:transaction-block-move-calls
+```
+
+Operational notes:
+
+- Do not run more than one `pnpm indexer:start` or `pnpm indexer:pipeline` at the same time.
+- Re-running the move-call sync is safe at the database level: `transaction_blocks` uses upsert semantics, and `suiscan_move_calls` is protected by unique constraints plus per-digest locking.
+- Transactions with no Move calls are also marked as processed, so they are not retried forever.
+
 ### Backend (Move) deployment
 
 The backend here is a Move package. Deploying it will also write the deployed package id into `packages/frontend/.env.local` so the frontend can call it.
