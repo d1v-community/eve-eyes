@@ -13,7 +13,7 @@ async function bootstrapEnv() {
 }
 
 async function sendStartupNotification() {
-  const webhook = process.env.NOTIFY_WEBHOOK?.trim()
+  const webhook = process.env.notify_webhook?.trim()
 
   if (!webhook) {
     return
@@ -53,11 +53,14 @@ async function sendStartupNotification() {
   }
 }
 
-function startProcess(name, args) {
+function startProcess(name, args, extraEnv = {}) {
   const child = spawn(process.execPath, args, {
     cwd: packageRoot,
     stdio: 'inherit',
-    env: process.env,
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
   })
 
   console.log(`[pipeline] started ${name}`, { pid: child.pid, args })

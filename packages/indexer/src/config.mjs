@@ -49,6 +49,20 @@ function readModules() {
     .filter(Boolean)
 }
 
+function readInitialCursorMode() {
+  const value = process.env.SUI_INDEXER_INITIAL_CURSOR_MODE?.trim().toLowerCase()
+
+  if (!value) {
+    return 'latest'
+  }
+
+  if (value !== 'latest' && value !== 'earliest') {
+    throw new Error('SUI_INDEXER_INITIAL_CURSOR_MODE must be either "latest" or "earliest"')
+  }
+
+  return value
+}
+
 export function getIndexerConfig() {
   return {
     network: 'testnet',
@@ -60,6 +74,11 @@ export function getIndexerConfig() {
     eventPageSize: readInteger('SUI_INDEXER_EVENT_PAGE_SIZE', 50),
     dbRetryCount: readInteger('SUI_INDEXER_DB_RETRY_COUNT', 3),
     dbRetryDelayMs: readInteger('SUI_INDEXER_DB_RETRY_DELAY_MS', 1500),
+    rpcRetryCount: readInteger('SUI_INDEXER_RPC_RETRY_COUNT', 5),
+    rpcRetryDelayMs: readInteger('SUI_INDEXER_RPC_RETRY_DELAY_MS', 1000),
+    rpcRetryMaxDelayMs: readInteger('SUI_INDEXER_RPC_RETRY_MAX_DELAY_MS', 15000),
+    rpcBatchSize: readInteger('SUI_INDEXER_RPC_BATCH_SIZE', 20),
+    processConcurrency: readInteger('SUI_INDEXER_PROCESS_CONCURRENCY', 4),
     cycleErrorDelayMs: readInteger('SUI_INDEXER_CYCLE_ERROR_DELAY_MS', 3000),
     digestCacheLimit: readInteger('SUI_INDEXER_DIGEST_CACHE_LIMIT', 5000),
     stateFilePath:
@@ -67,6 +86,7 @@ export function getIndexerConfig() {
       path.join(packageRoot, '.state', 'testnet-package-indexer.json'),
     runOnce: process.env.INDEXER_RUN_ONCE === 'true',
     configuredModules: readModules(),
+    initialCursorMode: readInitialCursorMode(),
     repoRoot,
     frontendRoot,
     packageRoot,

@@ -20,6 +20,11 @@ async function fetchPendingRows(sql, limit) {
     SELECT t.digest
     FROM transaction_blocks AS t
     WHERE t.move_calls_synced_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM suiscan_move_calls AS smc
+        WHERE smc.tx_digest = t.digest
+      )
     ORDER BY t.created_at ASC
     LIMIT ${limit}
   `
@@ -139,11 +144,29 @@ async function main() {
     const txRows = await fetchPendingRows(sql, limit)
     let syncedCount = 0
     let moveCallCount = 0
+    let skippedCount = 0
+    let completedCount = 0
     const rpcUsage = new Map()
+    const totalCount = txRows.length
+
+    function renderProgress() {
+      const width = 24
+      const ratio = totalCount === 0 ? 1 : completedCount / totalCount
+      const filled = Math.round(ratio * width)
+      const bar = `${'#'.repeat(filled)}${'-'.repeat(width - filled)}`
+      process.stdout.write(
+        `\r[sync-transaction-block-move-calls] progress [${bar}] ${completedCount}/${totalCount}`
+      )
+    }
+
+    renderProgress()
 
     await runWithConcurrency(txRows, concurrency, async (row) => {
       const result = await syncDigest(sql, rpcPool, row.digest)
       if (result.skipped) {
+        skippedCount += 1
+        completedCount += 1
+        renderProgress()
         return
       }
       syncedCount += 1
@@ -151,10 +174,16 @@ async function main() {
       if (result.rpcUrl) {
         rpcUsage.set(result.rpcUrl, (rpcUsage.get(result.rpcUrl) ?? 0) + 1)
       }
+      completedCount += 1
+      renderProgress()
     })
+
+    process.stdout.write('\n')
 
     console.log(`synced: ${syncedCount}`)
     console.log(`move_calls: ${moveCallCount}`)
+    console.log(`skipped: ${skippedCount}`)
+    console.log(`total: ${totalCount}`)
     console.log(`concurrency: ${concurrency}`)
     console.log(`rpc_urls: ${rpcPool.urls.join(', ')}`)
     console.log(

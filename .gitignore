@@ -12,6 +12,7 @@ node_modules
 .vscode/*
 !.vscode/extensions.json
 idea
+easy_deploy.sh
 packages/frontend/.env
 packages/indexer/.env
 .pnpm-store

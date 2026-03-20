@@ -1,204 +1,153 @@
-import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { getIndexerConfig } from './config.mjs'
 import {
-  getModuleCursor,
-  readState,
-  writeModuleCursor,
-} from './cursor-store.mjs'
-import { upsertTransactionBlock } from './db.mjs'
-import {
-  buildTransactionBlockRecord,
-  transactionBlockReferencesPackage,
-} from './parser.mjs'
-import {
   createSuiClient,
   fetchTransactionBlock,
+  getLatestModuleEventCursor,
   queryModuleEvents,
   resolvePackageModules,
 } from './sui.mjs'
-import { loadProjectEnv } from '../scripts/load-env.mjs'
+import {
+  bootstrapIndexerEnv,
+  getMigrationsDirectory,
+  processTransactionBlock,
+} from './ingest.mjs'
+import { createLogger } from './logger.mjs'
 import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
 
-function createLogger(scope) {
-  return {
-    info(message, details) {
-      if (details === undefined) {
-        console.log(`[${scope}] ${message}`)
-        return
-      }
-
-      console.log(`[${scope}] ${message}`, details)
-    },
-    error(message, error) {
-      console.error(
-        `[${scope}] ${message}`,
-        error instanceof Error ? error.stack ?? error.message : error
-      )
-    },
-  }
+function getRealtimeDigest(message) {
+  return message?.transactionDigest ?? message?.digest ?? message?.id?.txDigest ?? null
 }
 
-function createDigestCache(limit) {
-  const seen = new Set()
-  const order = []
+async function processDigest(sql, client, config, logger, digest) {
+  const txBlock = await fetchTransactionBlock(client, digest, config)
+  const result = await processTransactionBlock(sql, config, txBlock, logger)
 
-  return {
-    has(digest) {
-      return seen.has(digest)
-    },
-    add(digest) {
-      if (seen.has(digest)) {
-        return
-      }
-
-      seen.add(digest)
-      order.push(digest)
-
-      while (order.length > limit) {
-        const oldestDigest = order.shift()
-
-        if (oldestDigest) {
-          seen.delete(oldestDigest)
-        }
-      }
-    },
-    size() {
-      return seen.size
-    },
-  }
-}
-
-async function bootstrapEnv(config) {
-  await loadProjectEnv(config.repoRoot)
-  await loadProjectEnv(config.packageRoot)
-  await loadProjectEnv(config.frontendRoot)
-}
-
-function getMigrationsDirectory(config) {
-  return path.join(config.frontendRoot, 'db', 'migrations')
-}
-
-async function processDigest(client, sql, config, digest, logger) {
-  const txBlock = await fetchTransactionBlock(client, digest)
-
-  if (!transactionBlockReferencesPackage(txBlock, config.packageId)) {
-    return false
-  }
-
-  const record = buildTransactionBlockRecord(txBlock, config)
-  await upsertTransactionBlock(sql, record, config, logger)
-
-  return true
-}
-
-async function processModulePage({
-  client,
-  sql,
-  config,
-  state,
-  logger,
-  moduleName,
-  digestCache,
-}) {
-  const cursor = getModuleCursor(state, moduleName)
-  const page = await queryModuleEvents(client, config, moduleName, cursor)
-  const events = page?.data ?? []
-
-  if (events.length === 0) {
-    return {
-      state,
-      processedTransactions: 0,
-      nextPageFound: false,
-    }
-  }
-
-  const pageDigests = [...new Set(events.map((event) => event?.id?.txDigest).filter(Boolean))]
-  const digests = pageDigests.filter((digest) => !digestCache.has(digest))
-  const skippedDigestCount = pageDigests.length - digests.length
-  let processedTransactions = 0
-
-  for (const digest of digests) {
-    const stored = await processDigest(client, sql, config, digest, logger)
-
-    digestCache.add(digest)
-
-    if (stored) {
-      processedTransactions += 1
-    }
-  }
-
-  const lastEvent = events.at(-1)
-  const nextCursor = page?.nextCursor ?? lastEvent?.id ?? null
-  const nextState = await writeModuleCursor(config, state, moduleName, nextCursor)
-
-  logger.info('processed event page', {
-    moduleName,
-    eventCount: events.length,
-    candidateTransactionCount: pageDigests.length,
-    skippedDigestCount,
-    storedTransactionCount: processedTransactions,
-    digestCacheSize: digestCache.size(),
+  logger.info('processed transaction', {
+    digest: result.digest,
+    stored: result.stored,
+    checkpoint: result.checkpoint,
+    executedAt: result.executedAt,
   })
-
-  return {
-    state: nextState,
-    processedTransactions,
-    nextPageFound: Boolean(page?.hasNextPage),
-  }
 }
 
-async function runPollingCycle({ client, sql, config, state, logger, modules }) {
-  let nextState = state
-  let totalProcessedTransactions = 0
-  const digestCache = createDigestCache(config.digestCacheLimit)
+async function runPollingFallback(sql, client, config, logger, modules, seenDigests) {
+  const moduleCursors = new Map()
 
   for (const moduleName of modules) {
-    let keepPaging = true
+    const cursor = await getLatestModuleEventCursor(client, config, moduleName)
+    moduleCursors.set(moduleName, cursor)
 
-    while (keepPaging) {
-      const result = await processModulePage({
-        client,
-        sql,
-        config,
-        state: nextState,
-        logger,
-        moduleName,
-        digestCache,
-      })
-
-      nextState = result.state
-      totalProcessedTransactions += result.processedTransactions
-      keepPaging = result.nextPageFound
-    }
+    logger.info('bootstrapped module cursor to latest event', {
+      moduleName,
+      cursor,
+    })
   }
 
-  logger.info('completed polling cycle', {
-    moduleCount: modules.length,
-    storedTransactionCount: totalProcessedTransactions,
-  })
+  while (true) {
+    let storedTransactionCount = 0
 
-  return nextState
+    for (const moduleName of modules) {
+      const cursor = moduleCursors.get(moduleName) ?? null
+
+      if (cursor === null) {
+        continue
+      }
+
+      try {
+        const page = await queryModuleEvents(client, config, moduleName, cursor)
+        const events = page?.data ?? []
+
+        if (events.length === 0) {
+          continue
+        }
+
+        const pageDigests = [
+          ...new Set(events.map((event) => event?.id?.txDigest).filter(Boolean)),
+        ]
+        const digests = pageDigests.filter((digest) => !seenDigests.has(digest))
+
+        for (const digest of digests) {
+          seenDigests.add(digest)
+          await processDigest(sql, client, config, logger, digest)
+          storedTransactionCount += 1
+        }
+
+        const lastEvent = events.at(-1)
+        const nextCursor = page?.nextCursor ?? lastEvent?.id ?? cursor
+        moduleCursors.set(moduleName, nextCursor)
+
+        logger.info('processed event page', {
+          moduleName,
+          eventCount: events.length,
+          candidateTransactionCount: pageDigests.length,
+          storedTransactionCount: digests.length,
+          latestEventDigest: lastEvent?.id?.txDigest ?? null,
+          latestEventSequence: lastEvent?.id?.eventSeq ?? null,
+          nextCursor,
+        })
+      } catch (error) {
+        logger.error(`polling failed for module ${moduleName}`, error)
+      }
+    }
+
+    logger.info('completed polling cycle', {
+      moduleCount: modules.length,
+      storedTransactionCount,
+    })
+
+    await delay(config.pollIntervalMs)
+  }
 }
 
 async function main() {
   const config = getIndexerConfig()
   const logger = createLogger('indexer')
 
-  await bootstrapEnv(config)
+  await bootstrapIndexerEnv(config)
 
   const sql = createSqlClient()
   const client = createSuiClient(config)
   const modules = await resolvePackageModules(client, config)
   const migrationsDirectory = getMigrationsDirectory(config)
+  const inflightDigests = new Set()
+  const seenDigests = new Set()
+  let unsubscribe = null
+  let shuttingDown = false
 
-  logger.info('starting worker', {
-    network: config.network,
-    packageId: config.packageId,
-    rpcUrl: config.rpcUrl,
-    modules,
-    stateFilePath: config.stateFilePath,
+  async function shutdown(signal) {
+    if (shuttingDown) {
+      return
+    }
+
+    shuttingDown = true
+    logger.info('received shutdown signal', { signal })
+
+    if (unsubscribe) {
+      try {
+        await unsubscribe()
+      } catch (error) {
+        logger.error('failed to unsubscribe transaction listener', error)
+      }
+    }
+
+    await sql.end({ timeout: 5 })
+    process.exit(0)
+  }
+
+  process.on('SIGINT', () => {
+    shutdown('SIGINT').catch((error) => {
+      logger.error('shutdown failed', error)
+      process.exit(1)
+    })
+  })
+
+  process.on('SIGTERM', () => {
+    shutdown('SIGTERM').catch((error) => {
+      logger.error('shutdown failed', error)
+      process.exit(1)
+    })
   })
 
   try {
@@ -208,39 +157,71 @@ async function main() {
       logger.info('applied migrations', appliedMigrations)
     }
 
-    let state = await readState(config)
+    logger.info('starting worker', {
+      network: config.network,
+      packageId: config.packageId,
+      rpcUrl: config.rpcUrl,
+      modules,
+    })
 
-    do {
-      try {
-        state = await runPollingCycle({
-          client,
-          sql,
-          config,
-          state,
-          logger,
-          modules,
-        })
-      } catch (error) {
-        logger.error('polling cycle failed', error)
+    try {
+      unsubscribe = await Promise.race([
+        client.subscribeTransaction({
+          filter: {
+            MoveFunction: {
+              package: config.packageId,
+            },
+          },
+          onMessage: (message) => {
+            const digest = getRealtimeDigest(message)
 
-        if (!config.runOnce) {
-          await delay(config.cycleErrorDelayMs)
-        }
-      }
+            if (!digest || inflightDigests.has(digest) || seenDigests.has(digest)) {
+              return
+            }
 
-      if (!config.runOnce) {
-        await delay(config.pollIntervalMs)
-      }
-    } while (!config.runOnce)
+            inflightDigests.add(digest)
+
+            ;(async () => {
+              try {
+                seenDigests.add(digest)
+                await processDigest(sql, client, config, logger, digest)
+              } catch (error) {
+                logger.error('failed to process realtime transaction', error)
+                seenDigests.delete(digest)
+              } finally {
+                inflightDigests.delete(digest)
+              }
+            })().catch((error) => {
+              logger.error('unexpected realtime task failure', error)
+              inflightDigests.delete(digest)
+            })
+          },
+        }),
+        delay(10000).then(() => {
+          throw new Error('transaction subscription setup timed out after 10000ms')
+        }),
+      ])
+
+      logger.info('subscribed to package transactions', {
+        packageId: config.packageId,
+      })
+
+      await new Promise(() => {})
+    } catch (error) {
+      logger.error('transaction subscription unavailable, falling back to polling', error)
+      await runPollingFallback(sql, client, config, logger, modules, seenDigests)
+    }
   } finally {
-    await sql.end({ timeout: 5 })
+    if (!shuttingDown) {
+      await sql.end({ timeout: 5 })
+    }
   }
 }
 
 main().catch((error) => {
   console.error(
     '[indexer] fatal error',
-    error instanceof Error ? error.stack ?? error.message : error
+    error instanceof Error ? error.stack ?? error.message : String(error)
   )
   process.exitCode = 1
 })

@@ -24,7 +24,7 @@ pnpm indexer:pipeline
 
 This starts two long-running processes:
 
-- `packages/indexer/src/main.mjs`: chain listener and `transaction_blocks` writer
+- `packages/indexer/src/main.mjs`: package transaction listener with polling fallback and `transaction_blocks` writer
 - `packages/indexer/scripts/watch-transaction-block-move-calls.mjs`: move-call sync watcher
 
 If you prefer to run them separately, use two terminals:
@@ -91,6 +91,14 @@ pnpm --filter indexer run db:import:suiscan /path/to/file.csv
 - `SUI_INDEXER_EVENT_PAGE_SIZE`
 - `SUI_INDEXER_DB_RETRY_COUNT`
 - `SUI_INDEXER_DB_RETRY_DELAY_MS`
+- `SUI_INDEXER_RPC_RETRY_COUNT`
+- `SUI_INDEXER_RPC_RETRY_DELAY_MS`
+- `SUI_INDEXER_RPC_RETRY_MAX_DELAY_MS`
+- `SUI_INDEXER_RPC_BATCH_SIZE`
+- `SUI_INDEXER_PROCESS_CONCURRENCY`
 - `SUI_INDEXER_CYCLE_ERROR_DELAY_MS`
 - `SUI_INDEXER_DIGEST_CACHE_LIMIT`
 - `SUI_INDEXER_STATE_FILE`
+- `SUI_INDEXER_INITIAL_CURSOR_MODE` (`latest` by default, `earliest` for full historical replay)
+- `SUI_INDEXER_COMPENSATION_POLL_INTERVAL_MS`
+- `SUI_INDEXER_COMPENSATION_STATE_FILE`
