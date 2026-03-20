@@ -1,9 +1,57 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
+import { loadProjectEnv } from './load-env.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const packageRoot = path.resolve(scriptDirectory, '..')
+const repoRoot = path.resolve(packageRoot, '..', '..')
+
+async function bootstrapEnv() {
+  await loadProjectEnv(repoRoot)
+  await loadProjectEnv(packageRoot)
+}
+
+async function sendStartupNotification() {
+  const webhook = process.env.NOTIFY_WEBHOOK?.trim()
+
+  if (!webhook) {
+    return
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(webhook, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        msg_type: 'text',
+        content: {
+          text: `[eve-eyes] indexer pipeline started on ${process.env.HOSTNAME ?? 'unknown-host'}`,
+        },
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      console.error('[pipeline] failed to send startup notification', {
+        status: response.status,
+        statusText: response.statusText,
+      })
+    }
+  } catch (error) {
+    console.error(
+      '[pipeline] failed to send startup notification',
+      error instanceof Error ? error.message : String(error)
+    )
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 function startProcess(name, args) {
   const child = spawn(process.execPath, args, {
@@ -17,6 +65,9 @@ function startProcess(name, args) {
 }
 
 async function main() {
+  await bootstrapEnv()
+  await sendStartupNotification()
+
   const children = [
     {
       name: 'indexer',
