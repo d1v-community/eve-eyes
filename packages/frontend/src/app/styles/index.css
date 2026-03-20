@@ -18,6 +18,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body, #root {
   display: flex;
   flex-direction: column;
@@ -25,6 +29,10 @@ body, #root {
   align-items:center;
   min-width: 100%;
   min-height: 100vh;
+}
+
+[id] {
+  scroll-margin-top: 8rem;
 }
 
 /* Custom styles where it's not possible to use Tailwind classes. */
@@ -100,5 +108,52 @@ body, #root {
 .sds-status-dot-connected {
   background: #10b981;
   box-shadow: 0 0 0 0.24rem rgba(16, 185, 129, 0.18);
+}
+
+@keyframes sds-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.sds-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.7) 0%,
+    rgba(248, 250, 252, 0.96) 35%,
+    rgba(226, 232, 240, 0.7) 70%
+  );
+  background-size: 200% 100%;
+  animation: sds-shimmer 1.6s infinite linear;
+}
+
+.dark .sds-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.82) 0%,
+    rgba(51, 65, 85, 0.96) 35%,
+    rgba(30, 41, 59, 0.82) 70%
+  );
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  header,
+  footer,
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid rgba(15, 23, 42, 0.16) !important;
+  }
 }
 /* ~ Custom styles where it's not possible to use Tailwind classes. */

@@ -1,6 +1,6 @@
 # sui-nextjs-auth-template（pnpm Monorepo）
 
-这个仓库基于 **Sui dApp Starter**，使用 pnpm workspace 管理前后端代码：
+这个仓库基于 **EVE EYES**，使用 pnpm workspace 管理前后端代码：
 
 - `packages/frontend`：Next.js 前端
 - `packages/backend`：Move 合约 + Suibase 相关脚本

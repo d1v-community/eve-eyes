@@ -1,4 +1,4 @@
-# Sui dApp Starter - Easy-to-Use Full-Stack Sui Starter
+# EVE EYES - Easy-to-Use Full-Stack Sui Starter
 [![Build and Lint (frontend)](https://github.com/suiware/sui-dapp-starter/actions/workflows/build_and_lint.yaml/badge.svg)](https://github.com/suiware/sui-dapp-starter/actions/workflows/build_and_lint.yaml)
 [![Discord chat](https://img.shields.io/discord/1237259509366521866.svg?logo=discord&style=flat-square)](https://discord.com/invite/HuDPpXz4Hx)
 
@@ -113,7 +113,7 @@ pnpm test
 
 ## Docs & Support
 
-- [Sui dApp Starter Docs](https://sui-dapp-starter.dev/docs)
+- [EVE EYES Docs](https://sui-dapp-starter.dev/docs)
 - [Available PNPM Commands](https://sui-dapp-starter.dev/docs/misc/commands/)
 - [@suiware/kit Docs](https://www.npmjs.com/package/@suiware/kit)
 - [Discord Support](https://discord.com/invite/HuDPpXz4Hx)  
