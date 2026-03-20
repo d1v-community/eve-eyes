@@ -1,4 +1,5 @@
 import { ShieldCheck } from 'lucide-react'
+import OperationsShell from '../components/world/OperationsShell'
 import VerifyPodActions from '../components/world/VerifyPodActions'
 import VerifyCardShell from '../components/world/VerifyCardShell'
 import VerifySearchForm from '../components/world/VerifySearchForm'
@@ -41,8 +42,9 @@ export default async function VerifyPage({ searchParams }: PageProps) {
   )
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+    <OperationsShell>
+      <div className="flex flex-col gap-6">
+        <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75">
           <div className="mb-6 space-y-3">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-200">
@@ -160,7 +162,8 @@ export default async function VerifyPage({ searchParams }: PageProps) {
             </article>
           </div>
         </section>
-      </section>
-    </div>
+        </section>
+      </div>
+    </OperationsShell>
   )
 }

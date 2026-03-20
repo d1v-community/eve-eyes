@@ -1,4 +1,5 @@
 import { Binary } from 'lucide-react'
+import OperationsShell from '../components/world/OperationsShell'
 import { getType, listTypes } from '../world/api'
 
 export default async function CodexPage() {
@@ -8,8 +9,9 @@ export default async function CodexPage() {
     featuredTypeId != null ? await getType(featuredTypeId) : null
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+    <OperationsShell>
+      <div className="flex flex-col gap-6">
+        <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
             <Binary className="h-3.5 w-3.5" />
@@ -60,26 +62,27 @@ export default async function CodexPage() {
             </p>
           )}
         </div>
-      </section>
+        </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {typesResult.data?.data.map((item) => (
-          <article
-            key={item.id}
-            className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75"
-          >
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-              {item.name}
-            </h2>
-            <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              {item.categoryName}
-            </p>
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-              {item.groupName}
-            </p>
-          </article>
-        ))}
-      </section>
-    </div>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {typesResult.data?.data.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75"
+            >
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {item.name}
+              </h2>
+              <p className="mt-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                {item.categoryName}
+              </p>
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                {item.groupName}
+              </p>
+            </article>
+          ))}
+        </section>
+      </div>
+    </OperationsShell>
   )
 }

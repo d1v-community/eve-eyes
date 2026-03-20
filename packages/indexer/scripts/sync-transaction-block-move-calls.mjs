@@ -114,6 +114,10 @@ async function syncDigest(sql, txDigest, txBlock) {
     }
 
     const status = txBlock?.effects?.status?.status ?? null
+    const transactionTime =
+      txBlock?.timestampMs == null
+        ? null
+        : new Date(Number(txBlock.timestampMs)).toISOString()
     const moveCalls = extractMoveCalls(txBlock)
 
     await transaction`
@@ -124,17 +128,18 @@ async function syncDigest(sql, txDigest, txBlock) {
     if (status === 'success' && moveCalls.length > 0) {
       const values = []
       const placeholders = moveCalls.map((moveCall, rowIndex) => {
-        const offset = rowIndex * 6
+        const offset = rowIndex * 7
         values.push(
           txDigest,
           moveCall.callIndex,
           moveCall.packageId,
           moveCall.moduleName,
           moveCall.functionName,
-          JSON.stringify(moveCall.rawCall)
+          JSON.stringify(moveCall.rawCall),
+          transactionTime
         )
 
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}::jsonb)`
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}::jsonb, $${offset + 7})`
       })
 
       await transaction.unsafe(
@@ -145,7 +150,8 @@ async function syncDigest(sql, txDigest, txBlock) {
           package_id,
           module_name,
           function_name,
-          raw_call
+          raw_call,
+          transaction_time
         )
         VALUES ${placeholders.join(', ')}
         ON CONFLICT (tx_digest, call_index)
@@ -153,7 +159,8 @@ async function syncDigest(sql, txDigest, txBlock) {
           package_id = EXCLUDED.package_id,
           module_name = EXCLUDED.module_name,
           function_name = EXCLUDED.function_name,
-          raw_call = EXCLUDED.raw_call
+          raw_call = EXCLUDED.raw_call,
+          transaction_time = EXCLUDED.transaction_time
         `,
         values
       )

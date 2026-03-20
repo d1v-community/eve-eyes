@@ -98,6 +98,10 @@ export function buildTransactionBlockRecord(txBlock, config) {
       txBlock?.timestampMs == null
         ? null
         : new Date(Number(txBlock.timestampMs)).toISOString(),
+    transactionTime:
+      txBlock?.timestampMs == null
+        ? null
+        : new Date(Number(txBlock.timestampMs)).toISOString(),
     rawContent: txBlock,
     effects: txBlock?.effects ?? null,
     events: txBlock?.events ?? [],

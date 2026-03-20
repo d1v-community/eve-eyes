@@ -33,13 +33,17 @@ export const apiCoverageTodo = [
   'Authenticated jump history prepared behind a graceful empty state until token access is available.',
 ] as const
 
+export const operationsNavigation = [
+  { href: '/fleet', label: 'Fleet', description: 'Ships and fitting-oriented stats.' },
+  { href: '/codex', label: 'Codex', description: 'Type metadata for logistics and discovery.' },
+  { href: '/tribes', label: 'Tribes', description: 'Compact tribe intel and external links.' },
+  { href: '/verify', label: 'Verify', description: 'POD-backed cards and signature checks.' },
+  { href: '/jumps', label: 'Jumps', description: 'Personal travel history and heat.' },
+  { href: '/todo', label: 'TODO', description: 'Roadmap and delivery checklist.' },
+] as const
+
 export const headerNavigation = [
   { href: '/', label: 'Overview' },
   { href: '/atlas', label: 'Atlas' },
-  { href: '/fleet', label: 'Fleet' },
-  { href: '/codex', label: 'Codex' },
-  { href: '/tribes', label: 'Tribes' },
-  { href: '/verify', label: 'Verify' },
-  { href: '/jumps', label: 'Jumps' },
-  { href: '/todo', label: 'TODO' },
+  { href: '/fleet', label: 'Operations' },
 ] as const

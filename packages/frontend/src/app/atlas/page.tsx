@@ -53,7 +53,7 @@ export default async function AtlasPage() {
   }
 
   return (
-    <div className="flex w-full max-w-[96rem] flex-col gap-6 px-3">
+    <div className="flex w-full max-w-[108rem] flex-col gap-6 px-3 lg:px-4">
       <AtlasExplorer
         systems={[...systemsForMap.values()]}
         constellations={[...constellationsForMap.values()]}

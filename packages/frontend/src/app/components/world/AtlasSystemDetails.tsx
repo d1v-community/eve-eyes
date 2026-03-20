@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, Radar } from 'lucide-react'
+import { ArrowRight, MapPinned, Radar, Route } from 'lucide-react'
 
 type GateLink = {
   id: number
@@ -30,12 +30,18 @@ type Props = {
   system: DetailedSolarSystem | null
   isLoading: boolean
   error: string | null
+  onSelectSystemId?: (systemId: number) => void
+  onSetOrigin?: (system: DetailedSolarSystem['gateLinks'][number]['destination']) => void
+  onSetDestination?: (system: DetailedSolarSystem['gateLinks'][number]['destination']) => void
 }
 
 export default function AtlasSystemDetails({
   system,
   isLoading,
   error,
+  onSelectSystemId,
+  onSetOrigin,
+  onSetDestination,
 }: Props) {
   return (
     <div className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
@@ -53,7 +59,7 @@ export default function AtlasSystemDetails({
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Route className="h-4 w-4 animate-pulse" />
           Loading node details...
         </div>
       ) : null}
@@ -89,12 +95,44 @@ export default function AtlasSystemDetails({
                   key={gate.id}
                   className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/50"
                 >
-                  <div className="font-medium text-slate-900 dark:text-slate-100">
-                    {gate.destination.name}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                        {gate.destination.name}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {gate.name} · constellation {gate.destination.constellationId} ·
+                        region {gate.destination.regionId}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onSelectSystemId?.(gate.destination.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-500 transition hover:border-sky-300 hover:text-sky-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-sky-700"
+                    >
+                      <MapPinned className="h-3 w-3" />
+                      Focus
+                    </button>
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {gate.name} · constellation {gate.destination.constellationId} ·
-                    region {gate.destination.regionId}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSetOrigin?.(gate.destination)}
+                      className="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300"
+                    >
+                      Origin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSetDestination?.(gate.destination)}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-sky-700 transition hover:bg-sky-100 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-300"
+                    >
+                      Destination
+                    </button>
+                    <div className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                      <ArrowRight className="h-3 w-3" />
+                      #{gate.destination.id}
+                    </div>
                   </div>
                 </div>
               ))

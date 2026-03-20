@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { Activity, Boxes, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
-import EnvConfigWarning from './components/EnvConfigWarning'
 import OverviewMapLab from './components/world/OverviewMapLab'
+import { getModuleCallCounts } from './server/indexer/repository.mjs'
+import { getSqlClient } from './server/db/client.mjs'
 import {
   getSolarSystem,
   getWorldConfig,
@@ -10,17 +11,24 @@ import {
   listConstellations,
   listSolarSystems,
 } from './world/api'
-import { apiCoverageTodo, productRoadmap } from './world/roadmap'
+import { productRoadmap } from './world/roadmap'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 
 export default async function Home() {
-  const [healthResult, configResult, solarSystemsResult, constellationsResult] =
+  const [
+    healthResult,
+    configResult,
+    solarSystemsResult,
+    constellationsResult,
+    moduleCallCounts,
+  ] =
     await Promise.all([
       getWorldHealth(),
       getWorldConfig(),
       listSolarSystems(36),
       listConstellations(12),
+      getModuleCallCounts(getSqlClient()),
     ])
 
   const sampleSystems = solarSystemsResult.data?.data ?? []
@@ -102,7 +110,7 @@ export default async function Home() {
 
   return (
     <>
-      <EnvConfigWarning />
+      {/* <EnvConfigWarning /> */}
       <NetworkSupportChecker />
       <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
         <section className="grid gap-4 rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(77,162,255,0.18),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.9))] p-6 shadow-[0_24px_80px_rgba(15,23,42,0.1)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_32%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(15,23,42,0.82))] md:grid-cols-[1.15fr_0.85fr] md:p-8">
@@ -214,32 +222,52 @@ export default async function Home() {
           ))}
         </section>
 
+        <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                Indexer
+              </div>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                Module Call Counts
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Counts are derived from successful on-chain move call records stored in
+                `suiscan_move_calls`.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {moduleCallCounts.map((module) => (
+              <article
+                key={module.moduleName}
+                className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"
+              >
+                <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  {module.moduleName}
+                </div>
+                <div className="mt-3 text-3xl font-semibold text-slate-950 dark:text-white">
+                  {numberFormatter.format(module.callCount)}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  Latest tx:{' '}
+                  {module.latestTransactionTime
+                    ? new Date(module.latestTransactionTime).toLocaleString('en-US', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })
+                    : 'No data yet'}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <OverviewMapLab
           systems={[...systemsForMap.values()]}
           constellations={[...constellationsForMap.values()]}
           gateLinks={gateLinks}
         />
-
-        <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
-          <div className="mb-4">
-            <div className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-              TODO
-            </div>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-              What this iteration is optimizing for
-            </h2>
-          </div>
-          <div className="grid gap-3">
-            {apiCoverageTodo.map((item) => (
-              <div
-                key={item}
-                className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3 text-sm leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </>
   )

@@ -37,6 +37,15 @@ pnpm indexer:start
 pnpm --filter indexer run db:watch:transaction-block-move-calls
 ```
 
+Key command behavior:
+
+- `pnpm --filter indexer subscribe:package`
+  - Watches new package transactions and sends webhook notifications that include `transaction_time`.
+- `pnpm --filter indexer backfill:package`
+  - Backfills missing `transaction_blocks` rows and writes `transaction_time` into `transaction_blocks`.
+- `pnpm --filter indexer run db:watch:transaction-block-move-calls`
+  - Periodically parses pending successful transactions and writes `transaction_time` into `suiscan_move_calls`.
+
 ## Other Commands
 
 From the repository root:
@@ -73,6 +82,7 @@ pnpm --filter indexer run db:import:suiscan /path/to/file.csv
 
 - `transaction_blocks` is protected by a unique index on `(network, digest)`, and the indexer uses `ON CONFLICT DO UPDATE`, so reruns do not create duplicate rows.
 - `suiscan_move_calls` is protected by a unique index on `(tx_digest, call_index)`.
+- Both `transaction_blocks` and `suiscan_move_calls` store `transaction_time` so downstream queries can read transaction timestamps directly.
 - Move-call sync marks completion in `transaction_blocks.move_calls_synced_at`, so transactions with zero Move calls are still treated as processed and are not retried forever.
 - Move-call sync also uses a PostgreSQL advisory lock per digest, so concurrent sync workers do not process the same digest at the same time.
 

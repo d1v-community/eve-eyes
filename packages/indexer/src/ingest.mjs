@@ -14,15 +14,18 @@ export function getMigrationsDirectory(config) {
 }
 
 export async function processTransactionBlock(sql, config, txBlock, logger) {
+  const transactionTime =
+    txBlock?.timestampMs == null
+      ? null
+      : new Date(Number(txBlock.timestampMs)).toISOString()
+
   if (!transactionBlockReferencesPackage(txBlock, config.packageId)) {
     return {
       stored: false,
       digest: txBlock?.digest ?? null,
       checkpoint: txBlock?.checkpoint == null ? null : String(txBlock.checkpoint),
-      executedAt:
-        txBlock?.timestampMs == null
-          ? null
-          : new Date(Number(txBlock.timestampMs)).toISOString(),
+      executedAt: transactionTime,
+      transactionTime,
     }
   }
 
@@ -34,5 +37,6 @@ export async function processTransactionBlock(sql, config, txBlock, logger) {
     digest: record.digest,
     checkpoint: record.checkpoint,
     executedAt: record.executedAt,
+    transactionTime: record.transactionTime,
   }
 }

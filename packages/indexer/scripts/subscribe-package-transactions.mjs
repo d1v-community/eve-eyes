@@ -52,6 +52,12 @@ function getDigest(message) {
   return message?.digest ?? message?.transactionDigest ?? null
 }
 
+function getTransactionTime(txBlock) {
+  return txBlock?.timestampMs == null
+    ? null
+    : new Date(Number(txBlock.timestampMs)).toISOString()
+}
+
 function normalizeModuleFilter(moduleName, key) {
   return {
     [key]: {
@@ -61,7 +67,7 @@ function normalizeModuleFilter(moduleName, key) {
   }
 }
 
-async function sendWebhookNotification(webhookUrl, digest, rpcUrl) {
+async function sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTime) {
   const response = await fetch(webhookUrl, {
     method: 'POST',
     headers: {
@@ -75,6 +81,7 @@ async function sendWebhookNotification(webhookUrl, digest, rpcUrl) {
           `package: ${PACKAGE_ID}`,
           `digest: ${digest}`,
           `rpc: ${rpcUrl}`,
+          `transaction_time: ${transactionTime ?? 'unknown'}`,
         ].join('\n'),
       },
     }),
@@ -85,7 +92,7 @@ async function sendWebhookNotification(webhookUrl, digest, rpcUrl) {
   }
 }
 
-async function notifyDigest(webhookUrl, digest, rpcUrl, seenDigests) {
+async function notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests) {
   if (!digest || seenDigests.has(digest)) {
     return
   }
@@ -93,8 +100,19 @@ async function notifyDigest(webhookUrl, digest, rpcUrl, seenDigests) {
   seenDigests.add(digest)
 
   try {
-    await sendWebhookNotification(webhookUrl, digest, rpcUrl)
-    console.log('[subscribe-package-transactions] notified', { digest })
+    const txBlock = await client.getTransactionBlock({
+      digest,
+      options: {
+        showEffects: true,
+      },
+    })
+    const transactionTime = getTransactionTime(txBlock)
+
+    await sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTime)
+    console.log('[subscribe-package-transactions] notified', {
+      digest,
+      transactionTime,
+    })
   } catch (error) {
     console.error(
       '[subscribe-package-transactions] notification failed',
@@ -112,7 +130,7 @@ async function subscribeWithTimeout(client, rpcUrl, webhookUrl, seenDigests) {
     },
     onMessage: (message) => {
       const digest = getDigest(message)
-      void notifyDigest(webhookUrl, digest, rpcUrl, seenDigests)
+      void notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests)
     },
   })
 
@@ -169,7 +187,7 @@ async function pollTransactions(client, rpcUrl, webhookUrl, seenDigests, pollInt
 
         for (const event of events) {
           const digest = event?.id?.txDigest ?? null
-          await notifyDigest(webhookUrl, digest, rpcUrl, seenDigests)
+          await notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests)
         }
 
         const latestEvent = events.at(-1)?.id ?? currentCursor

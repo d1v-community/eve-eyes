@@ -1,4 +1,5 @@
 import { ArrowRightLeft, CalendarDays, Flame, ShipWheel } from 'lucide-react'
+import OperationsShell from '../components/world/OperationsShell'
 import { listMyJumps, type Jump } from '../world/api'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -82,8 +83,9 @@ export default async function JumpsPage() {
   const heatCells = buildHeatCells(jumps)
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+    <OperationsShell>
+      <div className="flex flex-col gap-6">
+        <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
             <ArrowRightLeft className="h-3.5 w-3.5" />
@@ -137,11 +139,11 @@ export default async function JumpsPage() {
             </div>
           )}
         </div>
-      </section>
+        </section>
 
-      {jumps.length > 0 ? (
-        <>
-          <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        {jumps.length > 0 ? (
+          <>
+            <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
             <article className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
               <div className="mb-4 flex items-center gap-3">
                 <CalendarDays className="h-5 w-5 text-sky-600 dark:text-sky-300" />
@@ -263,33 +265,34 @@ export default async function JumpsPage() {
                 </div>
               </article>
             </div>
-          </section>
+            </section>
 
-          <section className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
-            <div className="mb-4 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Activity heatmap
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-              {heatCells.map((cell) => (
-                <div
-                  key={cell.day}
-                  className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800"
-                  style={{
-                    backgroundColor: `rgba(14, 165, 233, ${cell.intensity})`,
-                  }}
-                >
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-700 dark:text-slate-100">
-                    {cell.day.slice(5)}
+            <section className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
+              <div className="mb-4 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                Activity heatmap
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+                {heatCells.map((cell) => (
+                  <div
+                    key={cell.day}
+                    className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800"
+                    style={{
+                      backgroundColor: `rgba(14, 165, 233, ${cell.intensity})`,
+                    }}
+                  >
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-700 dark:text-slate-100">
+                      {cell.day.slice(5)}
+                    </div>
+                    <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                      {cell.count}
+                    </div>
                   </div>
-                  <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-                    {cell.count}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : null}
-    </div>
+                ))}
+              </div>
+            </section>
+          </>
+        ) : null}
+      </div>
+    </OperationsShell>
   )
 }

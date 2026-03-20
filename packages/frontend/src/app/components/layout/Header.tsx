@@ -3,32 +3,22 @@
 import { useCurrentWallet } from '@mysten/dapp-kit'
 import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
-import {
-  Compass,
-  ListTodo,
-  Radar,
-  ShieldCheck,
-  ShipWheel,
-  Swords,
-} from 'lucide-react'
+import { Compass, FolderKanban, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Logo from '../../assets/logo.svg'
 import CustomConnectButton from '../CustomConnectButton'
-import { headerNavigation } from '~~/world/roadmap'
+import { headerNavigation, operationsNavigation } from '~~/world/roadmap'
 
 const navIcons = {
   '/': Compass,
   '/atlas': Radar,
-  '/fleet': ShipWheel,
-  '/codex': ShieldCheck,
-  '/tribes': Swords,
-  '/verify': ShieldCheck,
-  '/jumps': Compass,
-  '/todo': ListTodo,
+  '/fleet': FolderKanban,
 } as const
+
+const operationRoutes = new Set<string>(operationsNavigation.map((item) => item.href))
 
 const Header = () => {
   const { isConnected } = useCurrentWallet()
@@ -72,7 +62,10 @@ const Header = () => {
           <nav className="flex min-w-max items-center gap-2">
             {headerNavigation.map((item) => {
               const Icon = navIcons[item.href]
-              const isActive = pathname === item.href
+              const isActive =
+                item.href === '/fleet'
+                  ? operationRoutes.has(pathname)
+                  : pathname === item.href
 
               return (
                 <Link

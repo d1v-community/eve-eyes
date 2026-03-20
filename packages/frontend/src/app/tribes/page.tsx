@@ -1,4 +1,5 @@
 import { Swords } from 'lucide-react'
+import OperationsShell from '../components/world/OperationsShell'
 import { getTribe, listTribes } from '../world/api'
 
 export default async function TribesPage() {
@@ -8,8 +9,9 @@ export default async function TribesPage() {
     featuredTribeId != null ? await getTribe(featuredTribeId) : null
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-      <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+    <OperationsShell>
+      <div className="flex flex-col gap-6">
+        <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
             <Swords className="h-3.5 w-3.5" />
@@ -48,38 +50,39 @@ export default async function TribesPage() {
             </p>
           )}
         </div>
-      </section>
+        </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tribesResult.data?.data.map((tribe) => (
-          <article
-            key={tribe.id}
-            className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-slate-950 dark:text-white">
-                {tribe.name}
-              </h2>
-              <div className="rounded-full border border-slate-200/80 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                {tribe.nameShort}
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {tribesResult.data?.data.map((tribe) => (
+            <article
+              key={tribe.id}
+              className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-slate-950 dark:text-white">
+                  {tribe.name}
+                </h2>
+                <div className="rounded-full border border-slate-200/80 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                  {tribe.nameShort}
+                </div>
               </div>
-            </div>
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-              Tax rate {Math.round(tribe.taxRate * 100)}%
-            </p>
-            {tribe.tribeUrl ? (
-              <a
-                href={tribe.tribeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-4 block truncate text-sm text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
-              >
-                {tribe.tribeUrl}
-              </a>
-            ) : null}
-          </article>
-        ))}
-      </section>
-    </div>
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                Tax rate {Math.round(tribe.taxRate * 100)}%
+              </p>
+              {tribe.tribeUrl ? (
+                <a
+                  href={tribe.tribeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 block truncate text-sm text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                >
+                  {tribe.tribeUrl}
+                </a>
+              ) : null}
+            </article>
+          ))}
+        </section>
+      </div>
+    </OperationsShell>
   )
 }

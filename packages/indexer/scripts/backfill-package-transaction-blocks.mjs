@@ -40,6 +40,7 @@ async function sendCompletionNotification(webhookUrl, summary) {
           `stored: ${summary.stored}`,
           `skipped_existing: ${summary.skippedExisting}`,
           `skipped_non_matching: ${summary.skippedNonMatching}`,
+          `latest_transaction_time: ${summary.latestTransactionTime ?? 'none'}`,
         ].join('\n'),
       },
     }),
@@ -129,6 +130,7 @@ async function processDigests(sql, client, config, logger, digests, knownDigests
   const txBlocks = await fetchTransactionBlocks(client, digests, config)
   let insertedOrUpdatedCount = 0
   let skippedCount = 0
+  let latestTransactionTime = null
 
   await runWithConcurrency(txBlocks, config.processConcurrency, async (txBlock) => {
     const result = await processTransactionBlock(sql, config, txBlock, logger)
@@ -136,10 +138,11 @@ async function processDigests(sql, client, config, logger, digests, knownDigests
     if (result.stored && result.digest) {
       knownDigests.add(result.digest)
       insertedOrUpdatedCount += 1
+      latestTransactionTime = result.transactionTime ?? latestTransactionTime
       logger.info('stored transaction block', {
         digest: result.digest,
         checkpoint: result.checkpoint,
-        executedAt: result.executedAt,
+        transactionTime: result.transactionTime,
       })
       return
     }
@@ -148,13 +151,14 @@ async function processDigests(sql, client, config, logger, digests, knownDigests
     logger.info('skipped non-matching transaction block', {
       digest: result.digest,
       checkpoint: result.checkpoint,
-      executedAt: result.executedAt,
+      transactionTime: result.transactionTime,
     })
   })
 
   return {
     insertedOrUpdatedCount,
     skippedCount,
+    latestTransactionTime,
   }
 }
 
@@ -191,6 +195,7 @@ async function main() {
     let totalStored = 0
     let totalSkippedExisting = 0
     let totalSkippedNonMatching = 0
+    let latestTransactionTime = null
 
     for (const moduleName of modules) {
       let cursor = null
@@ -240,6 +245,7 @@ async function main() {
         moduleStored += result.insertedOrUpdatedCount
         totalSkippedExisting += duplicateCount
         totalSkippedNonMatching += result.skippedCount
+        latestTransactionTime = result.latestTransactionTime ?? latestTransactionTime
 
         const lastEvent = events.at(-1)
         cursor = page?.nextCursor ?? lastEvent?.id ?? null
@@ -279,6 +285,7 @@ async function main() {
       stored: totalStored,
       skippedExisting: totalSkippedExisting,
       skippedNonMatching: totalSkippedNonMatching,
+      latestTransactionTime,
     }
 
     console.log(`network: ${config.network}`)
@@ -289,6 +296,7 @@ async function main() {
     console.log(`stored: ${totalStored}`)
     console.log(`skipped_existing: ${totalSkippedExisting}`)
     console.log(`skipped_non_matching: ${totalSkippedNonMatching}`)
+    console.log(`latest_transaction_time: ${latestTransactionTime ?? 'none'}`)
 
     await sendCompletionNotification(webhookUrl, summary)
   } finally {

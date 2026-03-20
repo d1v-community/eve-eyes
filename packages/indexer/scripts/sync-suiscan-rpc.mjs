@@ -37,6 +37,10 @@ async function syncDigest(sql, rpcPool, txDigest) {
   })
 
   const txStatus = result?.effects?.status?.status ?? null
+  const transactionTime =
+    result?.timestampMs == null
+      ? null
+      : new Date(Number(result.timestampMs)).toISOString()
   const moveCalls = extractMoveCalls(result)
 
   await sql.begin(async (transaction) => {
@@ -57,17 +61,18 @@ async function syncDigest(sql, rpcPool, txDigest) {
 
     const values = []
     const placeholders = moveCalls.map((moveCall, rowIndex) => {
-      const offset = rowIndex * 6
+      const offset = rowIndex * 7
       values.push(
         txDigest,
         moveCall.callIndex,
         moveCall.packageId,
         moveCall.moduleName,
         moveCall.functionName,
-        JSON.stringify(moveCall.rawCall)
+        JSON.stringify(moveCall.rawCall),
+        transactionTime
       )
 
-      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}::jsonb)`
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}::jsonb, $${offset + 7})`
     })
 
     await transaction.unsafe(
@@ -78,7 +83,8 @@ async function syncDigest(sql, rpcPool, txDigest) {
         package_id,
         module_name,
         function_name,
-        raw_call
+        raw_call,
+        transaction_time
       )
       VALUES ${placeholders.join(', ')}
       `,
