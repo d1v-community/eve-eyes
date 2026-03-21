@@ -191,7 +191,7 @@ function buildCorridors(
 
 function tabClassName(active: boolean) {
   return [
-    'group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.24em] transition',
+    'font-display group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.2em] transition',
     active
       ? 'border-sky-300 bg-sky-50 text-sky-700 shadow-[0_10px_28px_rgba(56,189,248,0.14)] dark:border-sky-400/70 dark:bg-sky-500/15 dark:text-sky-100 dark:shadow-[0_0_24px_rgba(56,189,248,0.18)]'
       : 'border-slate-200/80 bg-white/80 text-slate-500 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-sky-500/40 dark:hover:text-slate-100',
@@ -353,25 +353,25 @@ export default function OverviewMapLab({
       <div className="grid gap-5 xl:grid-cols-[1.22fr_0.78fr]">
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/45">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+            <span className="font-display inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
               <Telescope className="h-3.5 w-3.5" />
               Cartography lab
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.26em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+            <span className="font-body inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
               <Sparkles className="h-3.5 w-3.5" />
               Same universe, three lenses
             </span>
           </div>
 
           <div className="mt-5 max-w-3xl">
-            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-[2.6rem]">
+            <h2 className="font-display text-3xl font-semibold tracking-[-0.045em] text-slate-950 dark:text-white md:text-[2.6rem]">
               Atlas for scale.
               <br />
               Network for structure.
               <br />
               Corridor for movement.
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+            <p className="font-body mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
               The same solar-system dataset can be read as geometry, topology,
               or traffic. Switching modes should change the question you can ask,
               not just the skin on the canvas.
@@ -402,13 +402,13 @@ export default function OverviewMapLab({
                 key={signal.label}
                 className="rounded-[1.25rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50 dark:hover:border-sky-800"
               >
-                <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                   {signal.label}
                 </div>
-                <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
                   {signal.value}
                 </div>
-                <div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                <div className="font-body mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
                   {signal.note}
                 </div>
               </article>
@@ -420,10 +420,10 @@ export default function OverviewMapLab({
           <article className="rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(240,249,255,0.86))] p-5 transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_40px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.74))] dark:hover:border-sky-800">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Active lens
                 </div>
-                <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
                   {activeMode.title}
                 </div>
               </div>
@@ -432,13 +432,13 @@ export default function OverviewMapLab({
               </div>
             </div>
 
-            <div className="mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
+            <div className="font-body mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
               {activeMode.stance}
             </div>
-            <div className="mt-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 px-4 py-4 text-sm leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-950/55 dark:text-slate-200">
+            <div className="font-body mt-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 px-4 py-4 text-sm leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-950/55 dark:text-slate-200">
               {activeMode.summary}
             </div>
-            <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-900/55 dark:text-slate-300">
+            <div className="font-body mt-3 rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-900/55 dark:text-slate-300">
               {activeMode.instruction}
             </div>
           </article>
@@ -493,14 +493,14 @@ export default function OverviewMapLab({
         <div className="grid gap-4">
           <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/60">
             {(mode === 'spatial' || mode === 'network') && (hoveredSystem ?? selectedSystem) ? (
-              <div className="mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-sky-950/20 dark:text-slate-200">
-                <div className="text-xs uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
+              <div className="font-body mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-sky-950/20 dark:text-slate-200">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
                   {hoveredSystem ? 'Hovered system' : 'Selected system'}
                 </div>
-                <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {(hoveredSystem ?? selectedSystem)?.name}
                 </div>
-                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-data mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   System #{(hoveredSystem ?? selectedSystem)?.id} · constellation{' '}
                   {(hoveredSystem ?? selectedSystem)?.constellationId} · region{' '}
                   {(hoveredSystem ?? selectedSystem)?.regionId}
@@ -508,14 +508,14 @@ export default function OverviewMapLab({
               </div>
             ) : null}
             {mode === 'corridor' && selectedCorridor ? (
-              <div className="mb-4 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/20 dark:text-slate-200">
-                <div className="text-xs uppercase tracking-[0.24em] text-fuchsia-700 dark:text-fuchsia-300">
+              <div className="font-body mb-4 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/20 dark:text-slate-200">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-fuchsia-700 dark:text-fuchsia-300">
                   Active corridor
                 </div>
-                <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {selectedCorridor.from.name} to {selectedCorridor.to.name}
                 </div>
-                <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-data mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   {selectedCorridor.weight} aggregated gate links
                 </div>
               </div>
@@ -524,14 +524,14 @@ export default function OverviewMapLab({
             {mode === 'network' ? (
               <div className="mb-4 space-y-4">
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  <div className="font-display mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                     Search system
                   </div>
                   <input
                     value={networkQuery}
                     onChange={(event) => setNetworkQuery(event.target.value)}
                     placeholder="Type 2+ chars"
-                    className="w-full rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
+                    className="font-body w-full rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
                   />
                   {filteredNetworkSystems.length > 0 ? (
                     <div className="mt-2 grid gap-2">
@@ -542,10 +542,10 @@ export default function OverviewMapLab({
                           onClick={() => setSelectedSystemId(system.id)}
                           className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
                         >
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
                             {system.name}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="font-data text-xs text-slate-500 dark:text-slate-400">
                             degree {degreeMap.get(system.id) ?? 0}
                           </div>
                         </button>
@@ -554,7 +554,7 @@ export default function OverviewMapLab({
                   ) : null}
                 </div>
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  <div className="font-display mb-2 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                     Top hubs
                   </div>
                   <div className="grid gap-2">
@@ -566,14 +566,14 @@ export default function OverviewMapLab({
                         className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
                       >
                         <div>
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
                             {system.name}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="font-data text-xs text-slate-500 dark:text-slate-400">
                             constellation {system.constellationId}
                           </div>
                         </div>
-                        <div className="rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                        <div className="font-data rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
                           #{index + 1} · {degreeMap.get(system.id) ?? 0}
                         </div>
                       </button>
@@ -585,7 +585,7 @@ export default function OverviewMapLab({
 
             {mode === 'corridor' ? (
               <div className="mb-4 space-y-3">
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Top corridors
                 </div>
                 <div className="grid gap-2">
@@ -600,14 +600,14 @@ export default function OverviewMapLab({
                         className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-fuchsia-300 dark:border-slate-800 dark:bg-slate-950/50"
                       >
                         <div>
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
                             {corridor.from.name} to {corridor.to.name}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="font-data text-xs text-slate-500 dark:text-slate-400">
                             regions {corridor.from.regionId} / {corridor.to.regionId}
                           </div>
                         </div>
-                        <div className="rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                        <div className="font-data rounded-full border border-slate-200/80 px-2.5 py-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
                           {corridor.weight}
                         </div>
                       </button>
@@ -619,26 +619,26 @@ export default function OverviewMapLab({
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   System sample
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {positionedSystems.length}
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Visible links
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {gateEdges.length}
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Anchor clusters
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
+                <div className="font-display mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {anchors.length}
                 </div>
               </div>

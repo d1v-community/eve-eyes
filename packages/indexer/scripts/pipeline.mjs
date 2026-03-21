@@ -73,8 +73,10 @@ async function main() {
 
   const children = [
     {
-      name: 'indexer',
-      child: startProcess('indexer', ['./src/main.mjs']),
+      name: 'subscribe-package',
+      child: startProcess('subscribe-package', [
+        './scripts/subscribe-package-transactions.mjs',
+      ]),
     },
     {
       name: 'watch-transaction-block-move-calls',

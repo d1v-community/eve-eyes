@@ -58,6 +58,10 @@ function getTransactionTime(txBlock) {
     : new Date(Number(txBlock.timestampMs)).toISOString()
 }
 
+function getTransactionUrl(digest) {
+  return `https://testnet.suivision.xyz/txblock/${digest}`
+}
+
 function normalizeModuleFilter(moduleName, key) {
   return {
     [key]: {
@@ -67,7 +71,7 @@ function normalizeModuleFilter(moduleName, key) {
   }
 }
 
-async function sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTime) {
+async function sendWebhookNotification(webhookUrl, digest, transactionTime) {
   const response = await fetch(webhookUrl, {
     method: 'POST',
     headers: {
@@ -80,7 +84,7 @@ async function sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTi
           '[eve-eyes] New package transaction detected',
           `package: ${PACKAGE_ID}`,
           `digest: ${digest}`,
-          `rpc: ${rpcUrl}`,
+          `txblock: ${getTransactionUrl(digest)}`,
           `transaction_time: ${transactionTime ?? 'unknown'}`,
         ].join('\n'),
       },
@@ -92,7 +96,7 @@ async function sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTi
   }
 }
 
-async function notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests) {
+async function notifyDigest(client, webhookUrl, digest, seenDigests) {
   if (!digest || seenDigests.has(digest)) {
     return
   }
@@ -108,7 +112,7 @@ async function notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests) {
     })
     const transactionTime = getTransactionTime(txBlock)
 
-    await sendWebhookNotification(webhookUrl, digest, rpcUrl, transactionTime)
+    await sendWebhookNotification(webhookUrl, digest, transactionTime)
     console.log('[subscribe-package-transactions] notified', {
       digest,
       transactionTime,
@@ -130,7 +134,7 @@ async function subscribeWithTimeout(client, rpcUrl, webhookUrl, seenDigests) {
     },
     onMessage: (message) => {
       const digest = getDigest(message)
-      void notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests)
+      void notifyDigest(client, webhookUrl, digest, seenDigests)
     },
   })
 
@@ -187,7 +191,7 @@ async function pollTransactions(client, rpcUrl, webhookUrl, seenDigests, pollInt
 
         for (const event of events) {
           const digest = event?.id?.txDigest ?? null
-          await notifyDigest(client, webhookUrl, digest, rpcUrl, seenDigests)
+          await notifyDigest(client, webhookUrl, digest, seenDigests)
         }
 
         const latestEvent = events.at(-1)?.id ?? currentCursor

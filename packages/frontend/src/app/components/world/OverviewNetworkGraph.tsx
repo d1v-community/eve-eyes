@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { normalizeSpatialSystems } from '../../world/spatial-layout'
+import {
+  normalizeSpatialSystems,
+  projectNormalizedPositionTo2D,
+} from '../../world/spatial-layout'
 import type { MapLink, MapSystem } from '../../world/types'
 
 type PositionedSystem = MapSystem & {
@@ -32,11 +35,15 @@ function getRegionColor(regionId: number) {
 }
 
 function normalizeSystems(systems: MapSystem[]): PositionedSystem[] {
-  return normalizeSpatialSystems(systems).map((system) => ({
-    ...system,
-    x: system.position[0] / 40,
-    y: system.position[1] / 40,
-  }))
+  return normalizeSpatialSystems(systems).map((system) => {
+    const projected = projectNormalizedPositionTo2D(system.position)
+
+    return {
+      ...system,
+      x: projected.x / 40,
+      y: projected.y / 40,
+    }
+  })
 }
 
 export default function OverviewNetworkGraph({

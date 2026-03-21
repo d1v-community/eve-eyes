@@ -5,6 +5,8 @@ import {
 } from '@mysten/dapp-kit'
 import { Button, TextField } from '@radix-ui/themes'
 import {
+  Copy,
+  CopyCheck,
   KeyRound,
   LoaderCircle,
   LockKeyhole,
@@ -76,6 +78,7 @@ export default function JumpsAccessPanel() {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCopying, setIsCopying] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authType, setAuthType] = useState<'anonymous' | 'jwt' | 'apiKey'>('anonymous')
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([])
@@ -189,10 +192,26 @@ export default function JumpsAccessPanel() {
     }
   }
 
+  async function handleCopyLatestApiKey() {
+    if (!latestCreatedApiKey) {
+      return
+    }
+
+    try {
+      setIsCopying(true)
+      await navigator.clipboard.writeText(latestCreatedApiKey)
+      setSuccessMessage('API key copied.')
+    } catch {
+      setErrorMessage('Failed to copy API key.')
+    } finally {
+      window.setTimeout(() => setIsCopying(false), 1200)
+    }
+  }
+
   const activeApiKeyCount = apiKeys.filter((item) => item.revokedAt == null).length
 
   return (
-    <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.95fr_1.05fr]">
+    <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.84fr_1.16fr]">
       <article className="rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.86))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/80 px-3 py-1.5 text-xs uppercase tracking-[0.28em] text-sky-700 shadow-[0_10px_24px_rgba(14,165,233,0.08)] dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
@@ -274,6 +293,13 @@ export default function JumpsAccessPanel() {
           </div>
         </div>
 
+        {isBootstrapping ? (
+          <div className="mt-5 grid gap-3">
+            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800 dark:bg-slate-950/45" />
+            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800 dark:bg-slate-950/45" />
+          </div>
+        ) : null}
+
         {errorMessage ? (
           <div className="mt-4 rounded-[1.3rem] border border-red-300/70 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
             {errorMessage}
@@ -308,6 +334,21 @@ export default function JumpsAccessPanel() {
             </div>
           </div>
         ) : null}
+
+        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.8))]">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+            Examples
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-[1.2rem] border border-slate-200/80 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 dark:border-slate-800">
+{`curl '/api/indexer/transaction-blocks?page=1&pageSize=20'
+
+curl '/api/indexer/transaction-blocks?page=4&pageSize=20' \\
+  -H 'Authorization: Bearer <jwt>'
+
+curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
+  -H 'x-api-key: <api-key>'`}
+          </pre>
+        </div>
       </article>
 
       <article className="rounded-[2rem] border border-slate-200/70 bg-white/92 p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/80">
@@ -326,7 +367,22 @@ export default function JumpsAccessPanel() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] md:grid-cols-[1fr_auto] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.88))]">
+        <div className="mt-4 rounded-[1.8rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.88))]">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                New key
+              </div>
+              <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                Create a machine key
+              </div>
+            </div>
+            <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
+              5 TPS fixed window
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
           <TextField.Root
             value={apiKeyName}
             onChange={(event) => setApiKeyName(event.target.value)}
@@ -346,14 +402,30 @@ export default function JumpsAccessPanel() {
             )}
             {isSubmitting ? 'Creating' : 'Create Key'}
           </Button>
+          </div>
         </div>
 
         {latestCreatedApiKey ? (
           <div className="mt-4 rounded-[1.5rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] p-4 shadow-[0_16px_34px_rgba(16,185,129,0.08)] dark:border-emerald-900/70 dark:bg-emerald-950/25">
-            <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
-              Copy now
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
+                Copy now
+              </div>
+              <Button
+                variant="soft"
+                onClick={handleCopyLatestApiKey}
+                disabled={isCopying}
+                className="!h-9 !rounded-full !border !border-emerald-300 !bg-white/80 !px-4 !font-semibold !text-emerald-800 dark:!border-emerald-900/70 dark:!bg-emerald-950/35 dark:!text-emerald-100"
+              >
+                {isCopying ? (
+                  <CopyCheck className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {isCopying ? 'Copied' : 'Copy'}
+              </Button>
             </div>
-            <div className="mt-2 break-all font-mono text-sm text-emerald-900 dark:text-emerald-100">
+            <div className="mt-3 break-all rounded-[1.15rem] bg-emerald-950 px-4 py-3 font-mono text-sm text-emerald-50">
               {latestCreatedApiKey}
             </div>
           </div>
@@ -416,21 +488,6 @@ export default function JumpsAccessPanel() {
                 : 'Sign in first, then create an API key for server-to-server access.'}
             </div>
           )}
-        </div>
-
-        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.8))]">
-          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Examples
-          </div>
-          <pre className="mt-3 overflow-x-auto rounded-[1.2rem] border border-slate-200/80 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 dark:border-slate-800">
-{`curl '/api/indexer/transaction-blocks?page=1&pageSize=20'
-
-curl '/api/indexer/transaction-blocks?page=4&pageSize=20' \\
-  -H 'Authorization: Bearer <jwt>'
-
-curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
-  -H 'x-api-key: <api-key>'`}
-          </pre>
         </div>
       </article>
     </section>

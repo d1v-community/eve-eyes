@@ -1,6 +1,8 @@
 import type { MapSystem } from './types'
 
 export const DEFAULT_SPATIAL_SCALE = 800
+const DEFAULT_PROJECTION_YAW = Math.PI / 5
+const DEFAULT_PROJECTION_PITCH = -Math.PI / 7
 
 type SpatialBounds = {
   minX: number
@@ -68,6 +70,33 @@ export function normalizeSpatialSystems(
   }))
 }
 
+export function projectNormalizedPositionTo2D(
+  position: [number, number, number],
+  {
+    yaw = DEFAULT_PROJECTION_YAW,
+    pitch = DEFAULT_PROJECTION_PITCH,
+  }: {
+    yaw?: number
+    pitch?: number
+  } = {}
+) {
+  const [x, y, z] = position
+
+  const cosYaw = Math.cos(yaw)
+  const sinYaw = Math.sin(yaw)
+  const rotatedX = x * cosYaw + z * sinYaw
+  const rotatedZ = -x * sinYaw + z * cosYaw
+
+  const cosPitch = Math.cos(pitch)
+  const sinPitch = Math.sin(pitch)
+  const rotatedY = y * cosPitch - rotatedZ * sinPitch
+
+  return {
+    x: rotatedX,
+    y: rotatedY,
+  }
+}
+
 export function projectSpatialSystemsToViewport(
   systems: MapSystem[],
   { width, height, padding }: ViewportProjectionOptions
@@ -82,7 +111,7 @@ export function projectSpatialSystemsToViewport(
   let maxProjectedY = -Infinity
 
   for (const system of normalizedSystems) {
-    const [x, y] = system.position
+    const { x, y } = projectNormalizedPositionTo2D(system.position)
 
     if (x < minProjectedX) minProjectedX = x
     if (x > maxProjectedX) maxProjectedX = x
@@ -99,7 +128,7 @@ export function projectSpatialSystemsToViewport(
   const centerY = (minProjectedY + maxProjectedY) / 2
 
   return normalizedSystems.map((system) => {
-    const [x, y] = system.position
+    const { x, y } = projectNormalizedPositionTo2D(system.position)
 
     return {
       ...system,

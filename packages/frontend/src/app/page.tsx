@@ -1,5 +1,6 @@
 import { Activity, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
+import ModuleCallCountsLive from './components/world/ModuleCallCountsLive'
 import OverviewIndexerTables from './components/world/OverviewIndexerTables'
 import { getModuleCallCounts } from './server/indexer/repository.mjs'
 import { getSqlClient } from './server/db/client.mjs'
@@ -271,46 +272,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                Indexer
-              </div>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-                Module Call Counts
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Counts are derived from successful on-chain move call records stored in
-                `suiscan_move_calls`.
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {moduleCallCounts.map((module) => (
-              <article
-                key={module.moduleName}
-                className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"
-              >
-                <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  {module.moduleName}
-                </div>
-                <div className="mt-3 text-3xl font-semibold text-slate-950 dark:text-white">
-                  {numberFormatter.format(module.callCount)}
-                </div>
-                <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
-                  Latest tx:{' '}
-                  {module.latestTransactionTime
-                    ? new Date(module.latestTransactionTime).toLocaleString('en-US', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })
-                    : 'No data yet'}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
+        <ModuleCallCountsLive initialModules={moduleCallCounts} />
         <OverviewIndexerTables />
       </div>
     </>

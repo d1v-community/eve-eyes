@@ -120,8 +120,8 @@ export default function SystemSearchInput({
       <label
         className={
           tone === 'dark'
-            ? 'text-[10px] uppercase tracking-[0.34em] text-stone-300/70'
-            : 'text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400'
+            ? 'font-display text-[10px] uppercase tracking-[0.34em] text-stone-300/70'
+            : 'font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400'
         }
       >
         {label}
@@ -155,8 +155,8 @@ export default function SystemSearchInput({
           placeholder={placeholder}
           className={
             tone === 'dark'
-              ? 'w-full rounded-[1.2rem] border border-stone-200/12 bg-white/8 px-10 py-3 text-sm text-stone-50 outline-none transition placeholder:text-stone-300/35 focus:border-amber-300/60 focus:bg-white/10'
-              : 'w-full rounded-[1.2rem] border border-stone-300/70 bg-white/86 px-10 py-3 text-sm text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-amber-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/60 dark:text-white'
+              ? 'font-body w-full rounded-[1.2rem] border border-stone-200/12 bg-white/8 px-10 py-3 text-sm text-stone-50 outline-none transition placeholder:text-stone-300/35 focus:border-amber-300/60 focus:bg-white/10'
+              : 'font-body w-full rounded-[1.2rem] border border-stone-300/70 bg-white/86 px-10 py-3 text-sm text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-amber-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/60 dark:text-white'
           }
         />
         {isLoading ? (
@@ -193,8 +193,8 @@ export default function SystemSearchInput({
               <span
                 className={
                   tone === 'dark'
-                    ? 'font-medium text-stone-50'
-                    : 'font-medium text-stone-950 dark:text-slate-100'
+                    ? 'font-body font-semibold text-stone-50'
+                    : 'font-body font-semibold text-stone-950 dark:text-slate-100'
                 }
               >
                 {system.name}
@@ -202,8 +202,8 @@ export default function SystemSearchInput({
               <span
                 className={
                   tone === 'dark'
-                    ? 'text-xs text-stone-300/60'
-                    : 'text-xs text-stone-500 dark:text-slate-400'
+                    ? 'font-data text-xs text-stone-300/60'
+                    : 'font-data text-xs text-stone-500 dark:text-slate-400'
                 }
               >
                 #{system.id} · constellation {system.constellationId} · region{' '}
