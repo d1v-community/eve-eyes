@@ -184,7 +184,10 @@ export async function assertWalletLoginChallenge(sql, input) {
     throw new Error('challenge has expired')
   }
 
-  if (typeof input?.message !== 'string' || input.message !== challenge.message) {
+  if (
+    input?.message != null &&
+    (typeof input.message !== 'string' || input.message !== challenge.message)
+  ) {
     throw new Error('message does not match challenge')
   }
 

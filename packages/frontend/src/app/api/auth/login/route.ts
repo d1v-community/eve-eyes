@@ -1,3 +1,7 @@
+import { parseSerializedSignature, toSerializedSignature } from '@mysten/sui/cryptography'
+import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519'
+import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1'
+import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1'
 import { verifyPersonalMessageSignature } from '@mysten/sui/verify'
 import { ACCESS_TOKEN_COOKIE_NAME, serializeCookie } from '~~/server/auth/cookies.mjs'
 import { getJwtTtlSeconds } from '~~/server/auth/config.mjs'
@@ -15,22 +19,69 @@ function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, init)
 }
 
-function decodeSignedBytes(bytes: string) {
-  const trimmed = typeof bytes === 'string' ? bytes.trim() : ''
+function decodeBase64(value: string) {
+  return Uint8Array.from(Buffer.from(value, 'base64'))
+}
 
-  if (!trimmed) {
-    throw new Error('bytes is required')
+function inferSerializedSignature(
+  signature: string,
+  publicKey: string | null,
+  walletAddress: string
+) {
+  const normalizedSignature = signature.trim()
+
+  try {
+    parseSerializedSignature(normalizedSignature)
+    return normalizedSignature
+  } catch {
+    if (!publicKey) {
+      throw new Error('signature could not be parsed')
+    }
   }
 
-  return Buffer.from(trimmed, 'base64')
+  const signatureBytes = decodeBase64(normalizedSignature)
+  const publicKeyBytes = decodeBase64(publicKey)
+  const normalizedAddress = walletAddress.toLowerCase()
+  try {
+    const ed25519PublicKey = new Ed25519PublicKey(publicKeyBytes)
+
+    if (ed25519PublicKey.toSuiAddress() === normalizedAddress) {
+      return toSerializedSignature({
+        signature: signatureBytes,
+        signatureScheme: 'ED25519',
+        publicKey: ed25519PublicKey,
+      })
+    }
+  } catch {
+    // Fall through to the secp256k1 / secp256r1 probes below.
+  }
+
+  for (const [signatureScheme, PublicKey] of [
+    ['Secp256k1', Secp256k1PublicKey],
+    ['Secp256r1', Secp256r1PublicKey],
+  ] as const) {
+    try {
+      const candidatePublicKey = new PublicKey(publicKeyBytes)
+
+      if (candidatePublicKey.toSuiAddress() === normalizedAddress) {
+        return toSerializedSignature({
+          signature: signatureBytes,
+          signatureScheme,
+          publicKey: candidatePublicKey,
+        })
+      }
+    } catch {
+      continue
+    }
+  }
+
+  throw new Error('signature could not be parsed')
 }
 
 export async function POST(request: Request) {
   try {
     const requestUrl = new URL(request.url)
     const payload = await request.json()
-    const messageBytes = decodeSignedBytes(payload?.bytes)
-    const message = messageBytes.toString('utf8')
 
     if (typeof payload?.signature !== 'string' || payload.signature.trim().length === 0) {
       return json({ error: 'signature is required' }, { status: 400 })
@@ -41,10 +92,15 @@ export async function POST(request: Request) {
       challengeId: payload?.challengeId,
       walletAddress: payload?.walletAddress,
       walletName: payload?.walletName ?? null,
-      message,
     })
+    const messageBytes = new TextEncoder().encode(preparedLogin.challenge.message)
+    const signature = inferSerializedSignature(
+      payload.signature,
+      typeof payload?.publicKey === 'string' ? payload.publicKey.trim() : null,
+      preparedLogin.walletAddress
+    )
 
-    const isValid = await verifyPersonalMessageSignature(messageBytes, payload.signature, {
+    const isValid = await verifyPersonalMessageSignature(messageBytes, signature, {
       address: preparedLogin.walletAddress,
     })
 
@@ -87,8 +143,8 @@ export async function POST(request: Request) {
       error instanceof Error &&
       [
         'walletAddress must be a valid Sui address',
-        'bytes is required',
         'message does not match challenge',
+        'signature could not be parsed',
       ].includes(error.message)
     ) {
       status = 400

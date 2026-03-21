@@ -1,11 +1,32 @@
 import { Link } from '@radix-ui/themes'
-import toast, { Renderable } from 'react-hot-toast'
-import Notification from '../components/Notification'
+import toast, { Renderable, type Toast } from 'react-hot-toast'
+import Notification, { type NotificationTone } from '../components/Notification'
+
+function renderNotification(type: NotificationTone, message: Renderable) {
+  return (toastInstance: Toast) => (
+    <Notification toastInstance={toastInstance} type={type}>
+      {message}
+    </Notification>
+  )
+}
+
+function showNotification(
+  type: NotificationTone,
+  message: Renderable,
+  options?: {
+    id?: string
+    duration?: number
+  }
+) {
+  return toast.custom(renderNotification(type, message), {
+    id: options?.id,
+    duration:
+      options?.duration ?? (type === 'loading' ? Number.POSITIVE_INFINITY : 4000),
+  })
+}
 
 const reportLoading = (message: Renderable) => {
-  const content = <Notification type="loading">{message}</Notification>
-
-  return toast.loading(content)
+  return showNotification('loading', message)
 }
 
 const reportError = (
@@ -17,34 +38,19 @@ const reportError = (
     console.error(error)
   }
 
-  const message =
-    userFriendlyMessage || error?.message || 'An error has occurred'
+  const message = userFriendlyMessage || error?.message || 'An error has occurred'
 
-  if (id == null) {
-    id = Date.now().toString()
-  }
-
-  const content = (
-    <Notification type="error" id={id}>
-      {message}
-    </Notification>
-  )
-
-  return toast.error(content, { id })
+  return showNotification('error', message, {
+    id: id ?? Date.now().toString(),
+    duration: 5000,
+  })
 }
 
 const reportSuccess = (message: Renderable, id?: string) => {
-  if (id == null) {
-    id = Date.now().toString()
-  }
-
-  const content = (
-    <Notification type="success" id={id}>
-      {message}
-    </Notification>
-  )
-
-  return toast.success(content, { id, duration: 4000 })
+  return showNotification('success', message, {
+    id: id ?? Date.now().toString(),
+    duration: 4000,
+  })
 }
 
 const reportTxLoading = () => {

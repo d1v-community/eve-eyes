@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 const POLL_INTERVAL_MS = 5000
-const REFRESH_FLASH_MS = 1400
+const GROWTH_FLASH_MS = 1800
 
 type ModuleCallCountItem = {
   moduleName: string
@@ -26,6 +26,21 @@ function buildFingerprint(modules: ModuleCallCountItem[]) {
       module.latestTransactionTime,
     ])
   )
+}
+
+function buildCountMap(modules: ModuleCallCountItem[]) {
+  return new Map(modules.map((module) => [module.moduleName, module.callCount]))
+}
+
+function getGrowingModules(
+  previousModules: ModuleCallCountItem[],
+  nextModules: ModuleCallCountItem[]
+) {
+  const previousCounts = buildCountMap(previousModules)
+
+  return nextModules
+    .filter((module) => module.callCount > (previousCounts.get(module.moduleName) ?? 0))
+    .map((module) => module.moduleName)
 }
 
 function formatUpdatedTime(value: Date) {
@@ -50,11 +65,14 @@ export default function ModuleCallCountsLive({
 }) {
   const [modules, setModules] = useState(initialModules)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isPolling, setIsPolling] = useState(false)
+  const [isGrowthFlashActive, setIsGrowthFlashActive] = useState(false)
+  const [highlightedModules, setHighlightedModules] = useState<string[]>([])
   const [hasMounted, setHasMounted] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
-  const [refreshToken, setRefreshToken] = useState(0)
+  const [totalGrowthToken, setTotalGrowthToken] = useState(0)
   const fingerprintRef = useRef(buildFingerprint(initialModules))
+  const modulesRef = useRef(initialModules)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -67,6 +85,10 @@ export default function ModuleCallCountsLive({
 
     const load = async () => {
       try {
+        if (!cancelled) {
+          setIsPolling(true)
+        }
+
         const response = await fetch('/api/indexer/module-call-counts', {
           cache: 'no-store',
         })
@@ -84,27 +106,44 @@ export default function ModuleCallCountsLive({
         setErrorMessage(null)
         setLastUpdatedAt(new Date())
 
+        const previousModules = modulesRef.current
+        const growingModules = getGrowingModules(previousModules, nextModules)
+        const previousTotal = previousModules.reduce((sum, module) => sum + module.callCount, 0)
+        const nextTotal = nextModules.reduce((sum, module) => sum + module.callCount, 0)
+
         if (nextFingerprint !== fingerprintRef.current) {
           fingerprintRef.current = nextFingerprint
+          modulesRef.current = nextModules
           setModules(nextModules)
-          setRefreshToken((value) => value + 1)
-          setIsRefreshing(true)
+        }
+
+        if (growingModules.length > 0 || nextTotal > previousTotal) {
+          setHighlightedModules(growingModules)
+          setIsGrowthFlashActive(true)
+          setTotalGrowthToken((value) => value + 1)
 
           if (flashTimeoutRef.current != null) {
             clearTimeout(flashTimeoutRef.current)
           }
 
           flashTimeoutRef.current = setTimeout(() => {
-            setIsRefreshing(false)
-          }, REFRESH_FLASH_MS)
+            setHighlightedModules([])
+            setIsGrowthFlashActive(false)
+          }, GROWTH_FLASH_MS)
         }
       } catch (error) {
         if (cancelled) return
         setErrorMessage(
           error instanceof Error ? error.message : 'Failed to refresh module call counts'
         )
+      } finally {
+        if (!cancelled) {
+          setIsPolling(false)
+        }
       }
     }
+
+    void load()
 
     const intervalId = setInterval(() => {
       void load()
@@ -125,11 +164,16 @@ export default function ModuleCallCountsLive({
     [modules]
   )
 
+  const highlightedModuleSet = useMemo(
+    () => new Set(highlightedModules),
+    [highlightedModules]
+  )
+
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">
       <div
         className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
-          isRefreshing ? 'opacity-100' : 'opacity-0'
+          isGrowthFlashActive ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.16),transparent_20%),radial-gradient(circle_at_50%_100%,rgba(250,204,21,0.14),transparent_28%)]" />
@@ -153,17 +197,17 @@ export default function ModuleCallCountsLive({
         <div className="flex flex-col items-end gap-2">
           <div
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.26em] ${
-              isRefreshing
+              isPolling
                 ? 'border-cyan-300/80 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-200'
                 : 'border-emerald-300/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
             }`}
           >
-            {isRefreshing ? (
+            {isPolling ? (
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Radio className="h-3.5 w-3.5" />
             )}
-            {isRefreshing ? 'syncing' : 'live every 5s'}
+            {isPolling ? 'syncing' : 'live every 5s'}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {hasMounted && lastUpdatedAt
@@ -184,27 +228,34 @@ export default function ModuleCallCountsLive({
         </article>
         <article
           className={`rounded-[1.3rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60 ${
-            isRefreshing ? 'animate-pulse' : ''
+            isGrowthFlashActive ? 'module-total-rise' : ''
           }`}
         >
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
             <Activity className="h-3.5 w-3.5" />
             Total indexed calls
           </div>
-          <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 transition-transform duration-500 dark:text-white">
+          <div
+            key={totalGrowthToken}
+            className={`mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white ${
+              isGrowthFlashActive ? 'module-total-rise-number' : 'transition-transform duration-500'
+            }`}
+          >
             {numberFormatter.format(totalCalls)}
           </div>
         </article>
         <article className="rounded-[1.3rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-            <Sparkles className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-pulse' : ''}`} />
+            <Sparkles
+              className={`h-3.5 w-3.5 ${isGrowthFlashActive ? 'module-spark-rise' : ''}`}
+            />
             Refresh mode
           </div>
           <div className="mt-2 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
             Diff-aware polling
           </div>
           <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Animation only fires when the payload actually changes.
+            Re-fetches every 5s and highlights only modules whose counts increase.
           </div>
         </article>
       </div>
@@ -218,17 +269,17 @@ export default function ModuleCallCountsLive({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {modules.map((module, index) => (
           <article
-            key={`${module.moduleName}-${refreshToken}`}
+            key={module.moduleName}
             className={`group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 transition-all duration-500 dark:border-slate-800 dark:bg-slate-900/60 ${
-              isRefreshing
-                ? 'scale-[1.02] border-cyan-300/70 shadow-[0_16px_38px_rgba(14,165,233,0.16)] dark:border-cyan-800'
+              highlightedModuleSet.has(module.moduleName)
+                ? 'module-card-rise scale-[1.03] border-emerald-300/80 shadow-[0_18px_42px_rgba(16,185,129,0.22)] dark:border-emerald-700'
                 : 'shadow-none'
             }`}
             style={{ animationDelay: `${index * 60}ms` }}
           >
             <div
               className={`pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08),transparent_35%,rgba(250,204,21,0.08))] transition-opacity duration-500 ${
-                isRefreshing ? 'opacity-100' : 'opacity-0'
+                highlightedModuleSet.has(module.moduleName) ? 'opacity-100' : 'opacity-0'
               }`}
             />
             <div className="relative text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -236,11 +287,18 @@ export default function ModuleCallCountsLive({
             </div>
             <div
               className={`relative mt-3 text-3xl font-semibold text-slate-950 transition-all duration-500 dark:text-white ${
-                isRefreshing ? 'translate-y-0 scale-105' : 'translate-y-0 scale-100'
+                highlightedModuleSet.has(module.moduleName)
+                  ? 'module-count-rise text-emerald-700 dark:text-emerald-300'
+                  : 'translate-y-0 scale-100'
               }`}
             >
               {numberFormatter.format(module.callCount)}
             </div>
+            {highlightedModuleSet.has(module.moduleName) ? (
+              <div className="relative mt-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                Count increased
+              </div>
+            ) : null}
             <p className="relative mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
               Latest tx:{' '}
               {hasMounted && module.latestTransactionTime
@@ -253,21 +311,6 @@ export default function ModuleCallCountsLive({
         ))}
       </div>
 
-      <style jsx>{`
-        @keyframes module-scan {
-          0% {
-            transform: translateX(0) skewX(-18deg);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(420%) skewX(-18deg);
-            opacity: 0;
-          }
-        }
-      `}</style>
     </section>
   )
 }

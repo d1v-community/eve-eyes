@@ -1,5 +1,5 @@
-import WorldDashboardSkeleton from '../components/world/WorldDashboardSkeleton'
+import VerifyLoadingSkeleton from '../components/world/VerifyLoadingSkeleton'
 
 export default function Loading() {
-  return <WorldDashboardSkeleton />
+  return <VerifyLoadingSkeleton />
 }

@@ -29,29 +29,29 @@ const Header = () => {
   return (
     <header className="supports-backdrop-blur:bg-white/60 dark:border-slate-50/1 sticky top-0 z-40 flex w-full justify-center border-b border-slate-900/10 bg-white/90 px-3 py-3 backdrop-blur transition-colors duration-500 dark:border-slate-50/10 dark:bg-slate-950/70">
       <div className="flex w-full max-w-6xl flex-col gap-4">
-        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+        <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-4">
           <Link
             href="/"
-            className="flex flex-col items-center justify-center gap-1 text-sds-dark outline-none hover:no-underline sm:flex-row dark:text-sds-light"
+            className="flex min-w-0 flex-1 items-center gap-2 text-sds-dark outline-none hover:no-underline sm:flex-none sm:gap-3 dark:text-sds-light"
           >
-            <LogoMark className="h-12 w-12 shrink-0" title="Logo" />
-            <div>
-              <div className="font-display pt-1 text-xl font-semibold tracking-[-0.03em] sm:text-2xl">
+            <LogoMark className="h-9 w-9 shrink-0 sm:h-12 sm:w-12" title="Logo" />
+            <div className="min-w-0">
+              <div className="font-display truncate pt-0.5 text-base font-semibold tracking-[-0.03em] sm:pt-1 sm:text-2xl">
                 {APP_NAME}
               </div>
-              <div className="font-body text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+              <div className="font-body truncate text-[10px] uppercase tracking-[0.22em] text-slate-500 sm:text-xs sm:tracking-[0.28em] dark:text-slate-400">
                 Look on Chain
               </div>
             </div>
           </Link>
 
-          <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
-            <div className="flex flex-row items-center justify-center gap-3">
+          <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-3">
+            <div className="flex origin-right scale-[0.9] flex-row items-center justify-center gap-2 sm:scale-100 sm:gap-3">
               <Balance />
               {isConnected ? <NetworkType /> : null}
             </div>
 
-            <div className="sds-connect-button-container">
+            <div className="sds-connect-button-container shrink-0">
               <CustomConnectButton />
             </div>
           </div>

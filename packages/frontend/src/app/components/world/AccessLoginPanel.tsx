@@ -1,14 +1,16 @@
 'use client'
 
 import {
+  ConnectModal,
   useCurrentAccount,
   useCurrentWallet,
   useSignPersonalMessage,
 } from '@mysten/dapp-kit'
 import { Button } from '@radix-ui/themes'
 import { KeyRound, LoaderCircle, ShieldCheck, Wallet } from 'lucide-react'
-import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { notification } from '../../helpers/notification'
+import JumpsAccessPanel from './JumpsAccessPanel'
 
 type AuthUser = {
   id: string
@@ -17,6 +19,16 @@ type AuthUser = {
 }
 
 const encoder = new TextEncoder()
+
+function encodeBase64(value: Uint8Array) {
+  let result = ''
+
+  for (const byte of value) {
+    result += String.fromCharCode(byte)
+  }
+
+  return btoa(result)
+}
 
 async function parseJsonResponse(response: Response) {
   const payload = await response.json().catch(() => ({}))
@@ -83,6 +95,9 @@ export default function AccessLoginPanel() {
     setIsSubmitting(true)
     setErrorMessage(null)
     setSuccessMessage(null)
+    const loginToastId = notification.loading(
+      isConnected ? 'Sign the message in your wallet to continue.' : 'Connect your wallet.'
+    )
 
     try {
       const challengeResponse = await fetch('/api/auth/challenge', {
@@ -108,6 +123,7 @@ export default function AccessLoginPanel() {
           walletAddress: currentAccount.address,
           walletName: currentWallet?.name ?? null,
           bytes: signed.bytes,
+          publicKey: encodeBase64(new Uint8Array(currentAccount.publicKey)),
           signature: signed.signature,
         }),
       })
@@ -115,12 +131,35 @@ export default function AccessLoginPanel() {
       await parseJsonResponse(loginResponse)
       await loadSession()
       setSuccessMessage('Wallet authenticated. API Access page is unlocked.')
+      notification.success('Signature verified. API key access is unlocked.', loginToastId)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to sign in')
+      const message = error instanceof Error ? error.message : 'Failed to sign in'
+      setErrorMessage(message)
+      notification.error(error instanceof Error ? error : null, message, loginToastId)
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  function handleProtectedAccessClick() {
+    notification.error(null, 'Please log in and complete the wallet signature first.')
+  }
+
+  if (user) {
+    return <JumpsAccessPanel />
+  }
+
+  const ctaLabel = !isConnected
+    ? 'Login With Wallet'
+    : isSubmitting
+      ? 'Waiting For Signature'
+      : 'Sign Message To Unlock'
+
+  const ctaIcon = isSubmitting ? (
+    <LoaderCircle className="h-4 w-4 animate-spin" />
+  ) : (
+    <Wallet className="h-4 w-4" />
+  )
 
   return (
     <section
@@ -178,41 +217,34 @@ export default function AccessLoginPanel() {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {!user ? (
+        {!isConnected ? (
+          <ConnectModal
+            trigger={
+              <Button className="cursor-pointer !h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60">
+                {ctaIcon}
+                {ctaLabel}
+              </Button>
+            }
+          />
+        ) : (
           <Button
             onClick={handleLogin}
-            disabled={!isConnected || isSubmitting}
-            className="!h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60"
+            disabled={isSubmitting}
+            className="cursor-pointer !h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60"
           >
-            {isSubmitting ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <Wallet className="h-4 w-4" />
-            )}
-            {isSubmitting ? 'Waiting For Signature' : 'Sign In With Wallet'}
+            {ctaIcon}
+            {ctaLabel}
           </Button>
-        ) : (
-          <Link
-            href="/access"
-            className="inline-flex h-12 items-center gap-2 rounded-full border border-sky-300/90 bg-[linear-gradient(135deg,rgba(224,242,254,0.96),rgba(186,230,253,0.92))] px-6 text-sm font-semibold text-sky-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_18px_40px_rgba(14,165,233,0.18)] transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-[0_22px_44px_rgba(14,165,233,0.24)] dark:border-sky-700/80 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.72),rgba(30,64,175,0.48))] dark:text-sky-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_44px_rgba(14,165,233,0.16)] dark:hover:border-sky-500 dark:hover:bg-[linear-gradient(135deg,rgba(8,47,73,0.84),rgba(30,64,175,0.6))]"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Open API Access
-          </Link>
         )}
+        <button
+          type="button"
+          onClick={handleProtectedAccessClick}
+          className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-full border border-sky-300/90 bg-[linear-gradient(135deg,rgba(224,242,254,0.96),rgba(186,230,253,0.92))] px-6 text-sm font-semibold text-sky-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_18px_40px_rgba(14,165,233,0.18)] transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-[0_22px_44px_rgba(14,165,233,0.24)] dark:border-sky-700/80 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.72),rgba(30,64,175,0.48))] dark:text-sky-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_44px_rgba(14,165,233,0.16)] dark:hover:border-sky-500 dark:hover:bg-[linear-gradient(135deg,rgba(8,47,73,0.84),rgba(30,64,175,0.6))]"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Open API Access
+        </button>
       </div>
-
-      {user ? (
-        <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] px-4 py-4 text-sm text-emerald-900 shadow-[0_14px_32px_rgba(16,185,129,0.12)] dark:border-emerald-900/70 dark:bg-[linear-gradient(135deg,rgba(6,40,28,0.9),rgba(6,78,59,0.34))] dark:text-emerald-200">
-          <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
-            Session active
-          </div>
-          <div className="mt-1 font-medium">
-            Session ready for {user.walletName ?? truncateValue(user.walletAddress)}. API key
-            management is available now.
-          </div>
-        </div>
-      ) : null}
 
       {errorMessage ? (
         <div className="mt-4 rounded-[1.4rem] border border-red-300/70 bg-[linear-gradient(135deg,rgba(254,242,242,0.96),rgba(254,226,226,0.92))] px-4 py-3 text-sm font-medium text-red-800 shadow-[0_14px_30px_rgba(239,68,68,0.08)] dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
