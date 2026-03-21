@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 const numberFormatter = new Intl.NumberFormat('en-US')
 const POLL_INTERVAL_MS = 5000
 const GROWTH_FLASH_MS = 1800
+const COUNT_UP_DURATION_MS = 1200
 
 type ModuleCallCountItem = {
   moduleName: string
@@ -43,6 +44,10 @@ function getGrowingModules(
     .map((module) => module.moduleName)
 }
 
+function buildAnimatedCountMap(modules: ModuleCallCountItem[], initialValue = 0) {
+  return Object.fromEntries(modules.map((module) => [module.moduleName, initialValue]))
+}
+
 function formatUpdatedTime(value: Date) {
   return `Updated ${value.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -71,14 +76,63 @@ export default function ModuleCallCountsLive({
   const [hasMounted, setHasMounted] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [totalGrowthToken, setTotalGrowthToken] = useState(0)
+  const [animatedCounts, setAnimatedCounts] = useState<Record<string, number>>(() =>
+    buildAnimatedCountMap(initialModules)
+  )
   const fingerprintRef = useRef(buildFingerprint(initialModules))
   const modulesRef = useRef(initialModules)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countAnimationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
     setHasMounted(true)
     setLastUpdatedAt(new Date())
   }, [])
+
+  useEffect(() => {
+    const previousCounts = buildAnimatedCountMap(modules)
+
+    for (const module of modules) {
+      previousCounts[module.moduleName] = animatedCounts[module.moduleName] ?? 0
+    }
+
+    const startedAt = performance.now()
+
+    if (countAnimationFrameRef.current != null) {
+      cancelAnimationFrame(countAnimationFrameRef.current)
+    }
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startedAt) / COUNT_UP_DURATION_MS, 1)
+      const easedProgress = 1 - (1 - progress) * (1 - progress)
+
+      setAnimatedCounts(
+        Object.fromEntries(
+          modules.map((module) => {
+            const from = previousCounts[module.moduleName] ?? 0
+            const nextValue = Math.round(from + (module.callCount - from) * easedProgress)
+
+            return [module.moduleName, nextValue]
+          })
+        )
+      )
+
+      if (progress < 1) {
+        countAnimationFrameRef.current = requestAnimationFrame(tick)
+      } else {
+        countAnimationFrameRef.current = null
+      }
+    }
+
+    countAnimationFrameRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      if (countAnimationFrameRef.current != null) {
+        cancelAnimationFrame(countAnimationFrameRef.current)
+        countAnimationFrameRef.current = null
+      }
+    }
+  }, [modules])
 
   useEffect(() => {
     let cancelled = false
@@ -156,12 +210,20 @@ export default function ModuleCallCountsLive({
       if (flashTimeoutRef.current != null) {
         clearTimeout(flashTimeoutRef.current)
       }
+
+      if (countAnimationFrameRef.current != null) {
+        cancelAnimationFrame(countAnimationFrameRef.current)
+      }
     }
   }, [])
 
   const totalCalls = useMemo(
-    () => modules.reduce((sum, module) => sum + module.callCount, 0),
-    [modules]
+    () =>
+      modules.reduce(
+        (sum, module) => sum + (animatedCounts[module.moduleName] ?? module.callCount),
+        0
+      ),
+    [animatedCounts, modules]
   )
 
   const highlightedModuleSet = useMemo(
@@ -292,7 +354,7 @@ export default function ModuleCallCountsLive({
                   : 'translate-y-0 scale-100'
               }`}
             >
-              {numberFormatter.format(module.callCount)}
+              {numberFormatter.format(animatedCounts[module.moduleName] ?? module.callCount)}
             </div>
             {highlightedModuleSet.has(module.moduleName) ? (
               <div className="relative mt-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">

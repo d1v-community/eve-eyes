@@ -7,6 +7,7 @@ import { Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import CustomConnectButton from '../CustomConnectButton'
 import LogoMark from '../LogoMark'
 import { headerNavigation, operationsNavigation } from '~~/world/roadmap'
@@ -25,6 +26,11 @@ const Header = () => {
   const { isConnected } = useCurrentWallet()
   const pathname = usePathname()
   const isApiAccessActive = pathname === '/access'
+  const [hasMounted, setHasMounted] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   return (
     <header className="supports-backdrop-blur:bg-white/60 dark:border-slate-50/1 sticky top-0 z-40 flex w-full justify-center border-b border-slate-900/10 bg-white/90 px-3 py-3 backdrop-blur transition-colors duration-500 dark:border-slate-50/10 dark:bg-slate-950/70">
@@ -48,7 +54,7 @@ const Header = () => {
           <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-3">
             <div className="flex origin-right scale-[0.9] flex-row items-center justify-center gap-2 sm:scale-100 sm:gap-3">
               <Balance />
-              {isConnected ? <NetworkType /> : null}
+              {hasMounted && isConnected ? <NetworkType /> : null}
             </div>
 
             <div className="sds-connect-button-container shrink-0">

@@ -42,7 +42,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen flex-col font-body" suppressHydrationWarning>
         <ClientProviders>
-          <div className="flex min-h-screen flex-col items-center justify-center gap-6">
+          <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6">
             <Header />
             <Body>{children}</Body>
             <Footer />

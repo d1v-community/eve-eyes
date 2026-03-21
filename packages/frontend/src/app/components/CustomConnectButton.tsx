@@ -13,6 +13,7 @@ import {
   PlugZapIcon,
   WalletIcon,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const truncateAddress = (address: string) =>
@@ -25,6 +26,17 @@ const CustomConnectButton = () => {
     useCurrentWallet()
   const { mutateAsync: disconnectWallet, isPending: isDisconnecting } =
     useDisconnectWallet()
+  const [hasMounted, setHasMounted] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  const safeConnectionStatus = hasMounted ? connectionStatus : 'disconnected'
+  const safeIsConnected = hasMounted && isConnected
+  const safeIsConnecting = hasMounted && isConnecting
+  const safeCurrentWalletName = hasMounted ? currentWallet?.name : null
+  const safeCurrentAccount = hasMounted ? currentAccount : null
 
   const statusConfig = {
     disconnected: {
@@ -42,15 +54,15 @@ const CustomConnectButton = () => {
       iconClassName: 'text-amber-500',
     },
     connected: {
-      label: currentWallet?.name || 'Wallet connected',
-      detail: currentAccount ? truncateAddress(currentAccount.address) : 'Active',
+      label: safeCurrentWalletName || 'Wallet connected',
+      detail: safeCurrentAccount ? truncateAddress(safeCurrentAccount.address) : 'Active',
       icon: PlugZapIcon,
       dotClassName: 'sds-status-dot sds-status-dot-connected',
       iconClassName: 'text-emerald-500',
     },
   } as const
 
-  const status = statusConfig[connectionStatus]
+  const status = statusConfig[safeConnectionStatus]
   const StatusIcon = status.icon
 
   async function handleDisconnect() {
@@ -83,11 +95,11 @@ const CustomConnectButton = () => {
               <span className="sds-status-icon-shell">
                 <span className={status.dotClassName} />
                 <StatusIcon
-                  className={`h-4 w-4 ${status.iconClassName} ${isConnecting ? 'animate-spin' : ''}`}
+                  className={`h-4 w-4 ${status.iconClassName} ${safeIsConnecting ? 'animate-spin' : ''}`}
                 />
               </span>
 
-              {connectionStatus === 'disconnected' ? (
+              {safeConnectionStatus === 'disconnected' ? (
                 <span className="text-sm font-medium text-slate-900 dark:text-slate-50">
                   <span className="sm:hidden">Connect</span>
                   <span className="hidden sm:inline">{status.detail}</span>
@@ -107,7 +119,7 @@ const CustomConnectButton = () => {
         }
       />
 
-      {isConnected && currentAccount ? (
+      {safeIsConnected && safeCurrentAccount ? (
         <IconButton
           type="button"
           variant="soft"
