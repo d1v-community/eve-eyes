@@ -1,38 +1,15 @@
 'use client'
 
 import { ArrowRight, MapPinned, Radar, Route } from 'lucide-react'
-
-type GateLink = {
-  id: number
-  name: string
-  destination: {
-    id: number
-    name: string
-    constellationId: number
-    regionId: number
-  }
-}
-
-type DetailedSolarSystem = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-  gateLinks: GateLink[]
-}
+import type { AtlasDetailedSolarSystem } from '../../world/types'
 
 type Props = {
-  system: DetailedSolarSystem | null
+  system: AtlasDetailedSolarSystem | null
   isLoading: boolean
   error: string | null
   onSelectSystemId?: (systemId: number) => void
-  onSetOrigin?: (system: DetailedSolarSystem['gateLinks'][number]['destination']) => void
-  onSetDestination?: (system: DetailedSolarSystem['gateLinks'][number]['destination']) => void
+  onSetOrigin?: (system: AtlasDetailedSolarSystem['gateLinks'][number]['destination']) => void
+  onSetDestination?: (system: AtlasDetailedSolarSystem['gateLinks'][number]['destination']) => void
 }
 
 export default function AtlasSystemDetails({

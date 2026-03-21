@@ -3,18 +3,12 @@
 import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import type { SearchSystem } from '../../world/types'
 import SystemSearchInput from './SystemSearchInput'
-
-type SystemSearchResult = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-}
 
 export default function VerifySearchForm() {
   const router = useRouter()
-  const [system, setSystem] = useState<SystemSearchResult | null>(null)
+  const [system, setSystem] = useState<SearchSystem | null>(null)
 
   return (
     <form

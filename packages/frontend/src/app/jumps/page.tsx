@@ -1,6 +1,6 @@
 import { ArrowRightLeft, CalendarDays, Flame, ShipWheel } from 'lucide-react'
+import AccessLoginPanel from '../components/world/AccessLoginPanel'
 import OperationsShell from '../components/world/OperationsShell'
-import JumpsAccessPanel from '../components/world/JumpsAccessPanel'
 import { listMyJumps, type Jump } from '../world/api'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -86,7 +86,7 @@ export default async function JumpsPage() {
   return (
     <OperationsShell>
       <div className="flex flex-col gap-6">
-        <JumpsAccessPanel />
+        <AccessLoginPanel />
 
         <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <div className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/75">

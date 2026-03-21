@@ -1,16 +1,17 @@
 import { Activity, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
 import OverviewIndexerTables from './components/world/OverviewIndexerTables'
-import OverviewModuleGrid from './components/world/OverviewModuleGrid'
-import OverviewMapLab from './components/world/OverviewMapLab'
 import { getModuleCallCounts } from './server/indexer/repository.mjs'
 import { getSqlClient } from './server/db/client.mjs'
 import {
-  getSolarSystem,
   getWorldConfig,
   getWorldHealth,
   listConstellations,
+  listMyJumps,
+  listShips,
   listSolarSystems,
+  listTribes,
+  listTypes,
 } from './world/api'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
@@ -21,6 +22,10 @@ export default async function Home() {
     configResult,
     solarSystemsResult,
     constellationsResult,
+    shipsResult,
+    typesResult,
+    tribesResult,
+    jumpsResult,
     moduleCallCounts,
   ] =
     await Promise.all([
@@ -28,55 +33,17 @@ export default async function Home() {
       getWorldConfig(),
       listSolarSystems(36),
       listConstellations(12),
+      listShips(1),
+      listTypes(1),
+      listTribes(1),
+      listMyJumps(24),
       getModuleCallCounts(getSqlClient()),
     ])
 
-  const sampleSystems = solarSystemsResult.data?.data ?? []
-  const sampleConstellations = constellationsResult.data?.data ?? []
   const totalSystems = solarSystemsResult.data?.metadata.total ?? 0
   const totalConstellations = constellationsResult.data?.metadata.total ?? 0
   const signingKey = configResult.data?.[0]?.podPublicSigningKey
-  const detailResults = await Promise.all(
-    sampleSystems.slice(0, 12).map((system) => getSolarSystem(system.id))
-  )
-  const gateLinks = detailResults.flatMap((result, index) => {
-    const sourceSystem = sampleSystems[index]
-
-    if (result.data == null || sourceSystem == null) return []
-
-    return result.data.gateLinks.map((gate) => ({
-      fromId: sourceSystem.id,
-      toId: gate.destination.id,
-      toConstellationId: gate.destination.constellationId,
-    }))
-  })
-
-  const systemsForMap = new Map(sampleSystems.map((system) => [system.id, system]))
-
-  for (const result of detailResults) {
-    if (result.data == null) continue
-
-    systemsForMap.set(result.data.id, result.data)
-
-    for (const gate of result.data.gateLinks) {
-      systemsForMap.set(gate.destination.id, gate.destination)
-    }
-  }
-
-  const constellationsForMap = new Map(
-    sampleConstellations.map((constellation) => [constellation.id, constellation])
-  )
-
-  for (const system of systemsForMap.values()) {
-    if (constellationsForMap.has(system.constellationId)) continue
-
-    constellationsForMap.set(system.constellationId, {
-      id: system.constellationId,
-      name: `Constellation ${system.constellationId}`,
-      regionId: system.regionId,
-      location: system.location,
-    })
-  }
+  const jumpsLocked = jumpsResult.error === 'Missing WORLD_API_BEARER_TOKEN'
 
   return (
     <>
@@ -176,66 +143,131 @@ export default async function Home() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
-                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Health
-                    </div>
-                    <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                      {healthResult.error == null ? 'Healthy' : 'Attention'}
-                    </div>
-                    <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      {healthResult.error ?? 'API reachable and ready.'}
-                    </div>
+                <div className="mt-4">
+                  <div className="mb-3 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                    Realtime surfaces
                   </div>
-
-                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
-                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Coverage
-                    </div>
-                    <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                      6 modules
-                    </div>
-                    <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      Atlas, verify, fleet, codex, tribes, and jumps.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition dark:border-slate-800 dark:bg-slate-950/45">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                        Operator note
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <a
+                      href="/fleet"
+                      className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_14px_30px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-slate-950/45 dark:hover:border-sky-800"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-semibold text-slate-950 dark:text-white">
+                            Fleet
+                          </div>
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            /fleet
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">
+                          live
+                        </span>
                       </div>
-                      <div className="mt-2 max-w-md text-sm leading-6 text-slate-700 dark:text-slate-200">
-                        Entry points below are intentionally compact: one signal, one note, one click path.
+                      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {shipsResult.data?.metadata.total ?? 0} hulls
                       </div>
-                    </div>
-                    <div className="hidden h-12 w-12 rounded-full border border-sky-200/70 bg-sky-50/75 sm:flex sm:items-center sm:justify-center dark:border-sky-900/70 dark:bg-sky-950/30">
-                      <Activity className="h-5 w-5 text-sky-600 dark:text-sky-300" />
-                    </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                        {shipsResult.data?.data[0]?.name != null
+                          ? `Featured hull ${shipsResult.data.data[0].name} is available for detail inspection.`
+                          : shipsResult.error ?? 'Ship catalog unavailable.'}
+                      </div>
+                    </a>
+
+                    <a
+                      href="/codex"
+                      className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_14px_30px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-slate-950/45 dark:hover:border-sky-800"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-semibold text-slate-950 dark:text-white">
+                            Codex
+                          </div>
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            /codex
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">
+                          live
+                        </span>
+                      </div>
+                      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {typesResult.data?.metadata.total ?? 0} types
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                        {typesResult.data?.data[0] != null
+                          ? `${typesResult.data.data[0].name} metadata is queryable.`
+                          : typesResult.error ?? 'Type catalog unavailable.'}
+                      </div>
+                    </a>
+
+                    <a
+                      href="/tribes"
+                      className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_14px_30px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-slate-950/45 dark:hover:border-sky-800"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-semibold text-slate-950 dark:text-white">
+                            Tribes
+                          </div>
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            /tribes
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">
+                          live
+                        </span>
+                      </div>
+                      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {tribesResult.data?.metadata.total ?? 0} tribes
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                        {tribesResult.data?.data[0] != null
+                          ? `Sample tag ${tribesResult.data.data[0].nameShort} with tax rate ${Math.round(
+                            tribesResult.data.data[0].taxRate * 100
+                          )}%.`
+                          : tribesResult.error ?? 'Tribe intel unavailable.'}
+                      </div>
+                    </a>
+
+                    <a
+                      href="/jumps"
+                      className="rounded-[1.15rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_14px_30px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-slate-950/45 dark:hover:border-sky-800"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-semibold text-slate-950 dark:text-white">
+                            Jumps
+                          </div>
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                            /jumps
+                          </div>
+                        </div>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.24em] ${jumpsLocked
+                            ? 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300'
+                            }`}
+                        >
+                          {jumpsLocked ? 'locked' : 'live'}
+                        </span>
+                      </div>
+                      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        {jumpsLocked
+                          ? 'Token required'
+                          : `${jumpsResult.data?.metadata.total ?? 0} jumps`}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                        {jumpsLocked
+                          ? 'Set WORLD_API_BEARER_TOKEN to expose private travel history.'
+                          : jumpsResult.error ?? 'Travel history available.'}
+                      </div>
+                    </a>
                   </div>
                 </div>
               </article>
             </div>
-          </div>
-
-          <div className="mt-4 rounded-[1.9rem] border border-slate-200/70 bg-white/48 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-slate-800 dark:bg-slate-950/28 md:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  Modules
-                </div>
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                  Entry matrix
-                </h2>
-              </div>
-              <div className="hidden rounded-full border border-slate-200/80 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/45 dark:text-slate-300 md:inline-flex">
-                Direct jump
-              </div>
-            </div>
-            <OverviewModuleGrid />
           </div>
         </section>
 
@@ -279,13 +311,6 @@ export default async function Home() {
             ))}
           </div>
         </section>
-
-        <OverviewMapLab
-          systems={[...systemsForMap.values()]}
-          constellations={[...constellationsForMap.values()]}
-          gateLinks={gateLinks}
-        />
-
         <OverviewIndexerTables />
       </div>
     </>

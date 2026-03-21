@@ -1,6 +1,14 @@
 'use client'
 
-import { ArrowRightLeft, Check, Copy, Loader2, Route, Shuffle } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Check,
+  Copy,
+  Loader2,
+  RefreshCcw,
+  Route,
+  Shuffle,
+} from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   startTransition,
@@ -9,19 +17,12 @@ import {
   useMemo,
   useState,
 } from 'react'
+import type { SearchSystem } from '../../world/types'
 import AtlasRecentRoutes from './AtlasRecentRoutes'
 import AtlasRouteMap from './AtlasRouteMap'
-import AtlasSystemDetails from './AtlasSystemDetails'
 import SystemSearchInput from './SystemSearchInput'
 
-type SystemSearchResult = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-}
-
-type RouteNode = SystemSearchResult
+type RouteNode = SearchSystem
 
 type RouteResponse = {
   path: RouteNode[]
@@ -40,47 +41,33 @@ type RouteHistoryItem = {
   }
 }
 
-type DetailedSolarSystem = {
+const STORAGE_KEY = 'eve-eyes-atlas-recent-routes'
+
+function makeSearchResult(input: {
   id: number
   name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
+  constellationId?: number
+  regionId?: number
+}) {
+  return {
+    id: input.id,
+    name: input.name,
+    constellationId: input.constellationId ?? 0,
+    regionId: input.regionId ?? 0,
   }
-  gateLinks: Array<{
-    id: number
-    name: string
-    destination: {
-      id: number
-      name: string
-      constellationId: number
-      regionId: number
-    }
-  }>
 }
-
-const STORAGE_KEY = 'eve-eyes-atlas-recent-routes'
 
 export default function AtlasRoutePlanner() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [origin, setOrigin] = useState<SystemSearchResult | null>(null)
-  const [destination, setDestination] = useState<SystemSearchResult | null>(null)
+  const [origin, setOrigin] = useState<SearchSystem | null>(null)
+  const [destination, setDestination] = useState<SearchSystem | null>(null)
   const [route, setRoute] = useState<RouteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [recentRoutes, setRecentRoutes] = useState<RouteHistoryItem[]>([])
   const [copied, setCopied] = useState(false)
-  const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null)
-  const [selectedSystem, setSelectedSystem] = useState<DetailedSolarSystem | null>(
-    null
-  )
-  const [isNodeLoading, setIsNodeLoading] = useState(false)
-  const [nodeError, setNodeError] = useState<string | null>(null)
   const originParam = searchParams.get('originId')
   const destinationParam = searchParams.get('destinationId')
   const deferredOrigin = useDeferredValue(originParam)
@@ -97,134 +84,31 @@ export default function AtlasRoutePlanner() {
     return `${pathname}?originId=${origin.id}&destinationId=${destination.id}`
   }, [destination, origin, pathname])
 
-  useEffect(() => {
-    const storedValue = window.localStorage.getItem(STORAGE_KEY)
-
-    if (!storedValue) {
-      return
-    }
-
-    try {
-      setRecentRoutes(JSON.parse(storedValue) as RouteHistoryItem[])
-    } catch {
-      setRecentRoutes([])
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!deferredOrigin || !deferredDestination) {
-      return
-    }
-
-    const loadRoute = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch(
-          `/api/world/route?originId=${deferredOrigin}&destinationId=${deferredDestination}`
-        )
-        const payload = (await response.json()) as RouteResponse & {
-          error?: string
-        }
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? 'Route search failed')
-        }
-
-        setRoute(payload)
-        setSelectedSystemId(payload.path[0]?.id ?? null)
-
-        const first = payload.path[0]
-        const last = payload.path[payload.path.length - 1]
-
-        if (first && last) {
-          const historyItem = {
-            origin: { id: first.id, name: first.name },
-            destination: { id: last.id, name: last.name },
-          }
-
-          setOrigin(first)
-          setDestination(last)
-          setRecentRoutes((previous) => {
-            const next = [
-              historyItem,
-              ...previous.filter(
-                (item) =>
-                  !(
-                    item.origin.id === historyItem.origin.id &&
-                    item.destination.id === historyItem.destination.id
-                  )
-              ),
-            ].slice(0, 6)
-
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-            return next
-          })
-        }
-      } catch (requestError) {
-        setRoute(null)
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : 'Route search failed'
-        )
-      } finally {
-        setIsLoading(false)
+  const routeSummary = useMemo(() => {
+    if (route == null) {
+      return {
+        hops: '--',
+        systems: '--',
+        explored: '--',
       }
     }
 
-    void loadRoute()
-  }, [deferredDestination, deferredOrigin])
-
-  useEffect(() => {
-    if (selectedSystemId == null) {
-      setSelectedSystem(null)
-      setNodeError(null)
-      return
+    return {
+      hops: String(route.hops),
+      systems: String(route.path.length),
+      explored: String(route.explored),
     }
+  }, [route])
 
-    const controller = new AbortController()
+  function resetTransientState() {
+    setRoute(null)
+    setError(null)
+  }
 
-    const loadSystem = async () => {
-      setIsNodeLoading(true)
-      setNodeError(null)
-
-      try {
-        const response = await fetch(`/api/world/systems/${selectedSystemId}`, {
-          signal: controller.signal,
-        })
-        const payload = (await response.json()) as DetailedSolarSystem & {
-          error?: string
-        }
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? 'Failed to load system details')
-        }
-
-        setSelectedSystem(payload)
-      } catch (requestError) {
-        if ((requestError as Error).name === 'AbortError') {
-          return
-        }
-
-        setSelectedSystem(null)
-        setNodeError(
-          requestError instanceof Error
-            ? requestError.message
-            : 'Failed to load system details'
-        )
-      } finally {
-        setIsNodeLoading(false)
-      }
-    }
-
-    void loadSystem()
-
-    return () => controller.abort()
-  }, [selectedSystemId])
-
-  const pushSelection = (nextOrigin: SystemSearchResult | null, nextDestination: SystemSearchResult | null) => {
+  function pushSelection(
+    nextOrigin: SearchSystem | null,
+    nextDestination: SearchSystem | null
+  ) {
     const params = new URLSearchParams(searchParams.toString())
 
     if (nextOrigin != null) {
@@ -243,18 +127,117 @@ export default function AtlasRoutePlanner() {
     router.replace(nextPath, { scroll: false })
   }
 
+  function applySelection(
+    nextOrigin: SearchSystem | null,
+    nextDestination: SearchSystem | null
+  ) {
+    setOrigin(nextOrigin)
+    setDestination(nextDestination)
+    resetTransientState()
+    pushSelection(nextOrigin, nextDestination)
+  }
+
+  useEffect(() => {
+    const storedValue = window.localStorage.getItem(STORAGE_KEY)
+
+    if (!storedValue) {
+      return
+    }
+
+    try {
+      setRecentRoutes(JSON.parse(storedValue) as RouteHistoryItem[])
+    } catch {
+      setRecentRoutes([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!deferredOrigin || !deferredDestination) {
+      setRoute(null)
+      return
+    }
+
+    const controller = new AbortController()
+
+    const loadRoute = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(
+          `/api/world/route?originId=${deferredOrigin}&destinationId=${deferredDestination}`,
+          {
+            signal: controller.signal,
+          }
+        )
+        const payload = (await response.json()) as RouteResponse & {
+          error?: string
+        }
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Route search failed')
+        }
+
+        setRoute(payload)
+
+        const first = payload.path[0]
+        const last = payload.path[payload.path.length - 1]
+
+        if (first && last) {
+          const nextOrigin = makeSearchResult(first)
+          const nextDestination = makeSearchResult(last)
+          const historyItem = {
+            origin: { id: first.id, name: first.name },
+            destination: { id: last.id, name: last.name },
+          }
+
+          setOrigin(nextOrigin)
+          setDestination(nextDestination)
+
+          setRecentRoutes((previous) => {
+            const next = [
+              historyItem,
+              ...previous.filter(
+                (item) =>
+                  !(
+                    item.origin.id === historyItem.origin.id &&
+                    item.destination.id === historyItem.destination.id
+                  )
+              ),
+            ].slice(0, 6)
+
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+            return next
+          })
+        }
+      } catch (requestError) {
+        if ((requestError as Error).name === 'AbortError') {
+          return
+        }
+
+        setRoute(null)
+        setError(
+          requestError instanceof Error ? requestError.message : 'Route search failed'
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadRoute()
+
+    return () => controller.abort()
+  }, [deferredDestination, deferredOrigin])
+
   const handleSwap = () => {
     startTransition(() => {
-      const nextOrigin = destination
-      const nextDestination = origin
+      applySelection(destination, origin)
+    })
+  }
 
-      setOrigin(nextOrigin)
-      setDestination(nextDestination)
-      setRoute(null)
-      setSelectedSystem(null)
-      setSelectedSystemId(null)
-      setError(null)
-      pushSelection(nextOrigin, nextDestination)
+  const handleReset = () => {
+    startTransition(() => {
+      applySelection(null, null)
     })
   }
 
@@ -266,10 +249,7 @@ export default function AtlasRoutePlanner() {
       return
     }
 
-    setRoute(null)
-    setSelectedSystem(null)
-    setSelectedSystemId(null)
-    setError(null)
+    resetTransientState()
     pushSelection(origin, destination)
   }
 
@@ -301,10 +281,36 @@ export default function AtlasRoutePlanner() {
             Search origin and destination, then compute a real gate path.
           </h1>
           <p className="max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-            Search stays lightweight in the browser. Name lookup and graph
-            traversal run on the server, so the UI remains fast and mobile-safe
-            even when the universe is large.
+            Search now opens only on active input intent. Selected values no longer retrigger the
+            dropdown, and planner state is synchronized around one route-selection flow.
           </p>
+        </div>
+
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Hops
+            </div>
+            <div className="mt-2 text-3xl font-semibold text-slate-950 dark:text-white">
+              {routeSummary.hops}
+            </div>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Systems
+            </div>
+            <div className="mt-2 text-3xl font-semibold text-slate-950 dark:text-white">
+              {routeSummary.systems}
+            </div>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Explored
+            </div>
+            <div className="mt-2 text-3xl font-semibold text-slate-950 dark:text-white">
+              {routeSummary.explored}
+            </div>
+          </div>
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -314,22 +320,33 @@ export default function AtlasRoutePlanner() {
             selected={origin}
             onSelect={setOrigin}
           />
-          <div className="flex justify-center">
+
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               type="button"
               onClick={handleSwap}
               className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50/90 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200"
             >
               <Shuffle className="h-4 w-4" />
-              Swap systems
+              Swap
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-300 hover:text-amber-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Reset
             </button>
           </div>
+
           <SystemSearchInput
             label="Destination"
             placeholder="Search a destination solar system"
             selected={destination}
             onSelect={setDestination}
           />
+
           <button
             type="submit"
             disabled={!canSearch || isLoading}
@@ -340,40 +357,22 @@ export default function AtlasRoutePlanner() {
             ) : (
               <ArrowRightLeft className="h-4 w-4" />
             )}
-            {isLoading ? 'Calculating route...' : 'Find best path'}
+            {isLoading ? 'Calculating route...' : 'Plot route'}
           </button>
         </form>
 
         <div className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-          The route engine uses cached gate-link expansion on demand. First
-          searches may be slower, but follow-up searches reuse previously loaded
-          systems.
+          The route engine uses cached gate-link expansion on demand. First searches may be slower,
+          but follow-up searches reuse previously loaded systems.
         </div>
 
         <div className="mt-4">
           <AtlasRecentRoutes
             items={recentRoutes}
             onSelect={(item) => {
-              const nextOrigin = {
-                id: item.origin.id,
-                name: item.origin.name,
-                constellationId: 0,
-                regionId: 0,
-              }
-              const nextDestination = {
-                id: item.destination.id,
-                name: item.destination.name,
-                constellationId: 0,
-                regionId: 0,
-              }
-
-              setOrigin(nextOrigin)
-              setDestination(nextDestination)
-              setRoute(null)
-              setSelectedSystem(null)
-              setSelectedSystemId(null)
-              setError(null)
-              pushSelection(nextOrigin, nextDestination)
+              const nextOrigin = makeSearchResult(item.origin)
+              const nextDestination = makeSearchResult(item.destination)
+              applySelection(nextOrigin, nextDestination)
             }}
           />
         </div>
@@ -386,9 +385,7 @@ export default function AtlasRoutePlanner() {
               Route Output
             </div>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-              {route
-                ? `${route.hops} hops across ${route.path.length} systems`
-                : 'No route yet'}
+              {route ? `${route.hops} hops across ${route.path.length} systems` : 'No route yet'}
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -424,52 +421,12 @@ export default function AtlasRoutePlanner() {
 
         {route ? (
           <div className="space-y-4">
-            <AtlasRouteMap
-              path={route.path}
-              selectedSystemId={selectedSystemId}
-              onSelect={(system) => setSelectedSystemId(system.id)}
-            />
-            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="space-y-3">
-                {route.path.map((system, index) => (
-                  <button
-                    key={system.id}
-                    type="button"
-                    onClick={() => setSelectedSystemId(system.id)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      selectedSystemId === system.id
-                        ? 'border-sky-300 bg-sky-50/80 dark:border-sky-700 dark:bg-sky-950/30'
-                        : 'border-slate-200/70 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="text-lg font-medium text-slate-900 dark:text-slate-100">
-                          {system.name}
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          #{system.id} · constellation {system.constellationId} ·
-                          region {system.regionId}
-                        </div>
-                      </div>
-                      <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                        Stop {index + 1}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <AtlasSystemDetails
-                system={selectedSystem}
-                isLoading={isNodeLoading}
-                error={nodeError}
-              />
-            </div>
+            <AtlasRouteMap path={route.path} selectedSystemId={null} onSelect={() => {}} />
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:text-slate-300">
-            Pick two systems and the page will render the gate-by-gate route
-            here, including hop count and search effort.
+            Pick two systems and the page will render the gate-by-gate route here, including hop
+            count and search effort.
           </div>
         )}
       </section>

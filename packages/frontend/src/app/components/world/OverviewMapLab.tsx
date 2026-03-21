@@ -1,39 +1,13 @@
 'use client'
 
-import { Network, Orbit, Radar } from 'lucide-react'
+import { Network, Orbit, Radar, Sparkles, Telescope } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { useMemo, useState } from 'react'
+import { projectSpatialSystemsToViewport } from '../../world/spatial-layout'
+import type { MapConstellation, MapLink, MapSystem } from '../../world/types'
 import OverviewCorridorDeck from './OverviewCorridorDeck'
 import OverviewNetworkGraph from './OverviewNetworkGraph'
 import OverviewSpatialAtlas from './OverviewSpatialAtlas'
-
-type MapSystem = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapConstellation = {
-  id: number
-  name: string
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapLink = {
-  fromId: number
-  toId: number
-  toConstellationId: number
-}
 
 type OverviewMapLabProps = {
   systems: MapSystem[]
@@ -48,6 +22,28 @@ type PositionedSystem = MapSystem & {
   py: number
 }
 
+type Corridor = {
+  fromId: number
+  toId: number
+  weight: number
+  from: {
+    id: number
+    name: string
+    regionId: number
+    x: number
+    y: number
+    count: number
+  }
+  to: {
+    id: number
+    name: string
+    regionId: number
+    x: number
+    y: number
+    count: number
+  }
+}
+
 const WIDTH = 880
 const HEIGHT = 480
 const PADDING = 56
@@ -57,83 +53,57 @@ const modeMeta: Record<
   {
     label: string
     title: string
-    tech: string
+    stance: string
     icon: typeof Orbit
     summary: string
-    useCase: string
+    instruction: string
   }
 > = {
   spatial: {
     label: 'Atlas',
     title: 'Spatial star atlas',
-    tech: 'react-three-fiber + three.js',
+    stance: 'Read the universe as volume, distance, and clustering.',
     icon: Orbit,
     summary:
-      'Use the real solar-system xyz coordinates to build a cinematic star map with camera fly-through, glow, and distance-preserving layout.',
-    useCase:
-      'Best for the primary atlas because your data is already spatial, not just relational.',
+      'Real xyz coordinates turn the map into a physical field instead of a symbolic diagram.',
+    instruction:
+      'Orbit the camera, zoom through depth, and lock onto systems to understand spatial context before route logic takes over.',
   },
   network: {
     label: 'Network',
     title: 'Gate topology explorer',
-    tech: 'sigma.js or react-force-graph',
+    stance: 'Ignore distance and expose pure structure.',
     icon: Network,
     summary:
-      'Collapse the universe into a relationship-first graph so users can inspect hubs, chokepoints, and route branching without caring about physical distance.',
-    useCase:
-      'Best for route analysis, path debugging, and graph search tools where structure matters more than realism.',
+      'Hubs, branching, and chokepoints become legible once physical placement is collapsed into connectivity.',
+    instruction:
+      'Search by system name or jump directly to hub systems to inspect graph gravity, not geography.',
   },
   corridor: {
     label: 'Corridor',
     title: 'Operational traffic layer',
-    tech: 'deck.gl or custom GPU overlays',
+    stance: 'Aggregate movement into lanes that matter operationally.',
     icon: Radar,
     summary:
-      'Aggregate edges into constellation-level corridors and density beams to surface the routes and clusters that actually drive movement.',
-    useCase:
-      'Best for analytics overlays, faction influence, jump heat, and future player-intel layers.',
+      'Constellation bridges reveal where route pressure concentrates instead of where points merely exist.',
+    instruction:
+      'Select a corridor to inspect its weight, regional span, and the strongest route bridges in the sampled map.',
   },
 }
 
 function normalizeSystems(systems: MapSystem[]): PositionedSystem[] {
-  if (systems.length === 0) return []
-
-  let minX = Infinity
-  let maxX = -Infinity
-  let minY = Infinity
-  let maxY = -Infinity
-
-  for (const system of systems) {
-    if (system.location.x < minX) minX = system.location.x
-    if (system.location.x > maxX) maxX = system.location.x
-    if (system.location.y < minY) minY = system.location.y
-    if (system.location.y > maxY) maxY = system.location.y
-  }
-
-  const usableWidth = WIDTH - PADDING * 2
-  const usableHeight = HEIGHT - PADDING * 2
-  const rangeX = maxX - minX || 1
-  const rangeY = maxY - minY || 1
-
-  return systems.map((system) => ({
-    ...system,
-    px: PADDING + ((system.location.x - minX) / rangeX) * usableWidth,
-    py: HEIGHT - PADDING - ((system.location.y - minY) / rangeY) * usableHeight,
-  }))
+  return projectSpatialSystemsToViewport(systems, {
+    width: WIDTH,
+    height: HEIGHT,
+    padding: PADDING,
+  })
 }
 
 function buildConstellationAnchors(
   systems: PositionedSystem[],
   constellations: MapConstellation[]
 ) {
-  const grouped = new Map<
-    number,
-    {
-      x: number
-      y: number
-      count: number
-    }
-  >()
+  const grouped = new Map<number, { x: number; y: number; count: number }>()
 
   for (const system of systems) {
     const current = grouped.get(system.constellationId) ?? { x: 0, y: 0, count: 0 }
@@ -214,17 +184,17 @@ function buildCorridors(
 
       return { ...corridor, from, to }
     })
-    .filter((value): value is NonNullable<typeof value> => value != null)
+    .filter((value): value is Corridor => value != null)
     .sort((left, right) => right.weight - left.weight)
     .slice(0, 10)
 }
 
 function tabClassName(active: boolean) {
   return [
-    'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.24em] transition',
+    'group inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.24em] transition',
     active
-      ? 'border-sky-400/70 bg-sky-500/15 text-sky-100 shadow-[0_0_24px_rgba(56,189,248,0.18)]'
-      : 'border-white/10 bg-white/5 text-slate-400 hover:border-sky-500/40 hover:text-slate-100',
+      ? 'border-sky-300 bg-sky-50 text-sky-700 shadow-[0_10px_28px_rgba(56,189,248,0.14)] dark:border-sky-400/70 dark:bg-sky-500/15 dark:text-sky-100 dark:shadow-[0_0_24px_rgba(56,189,248,0.18)]'
+      : 'border-slate-200/80 bg-white/80 text-slate-500 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-sky-500/40 dark:hover:text-slate-100',
   ].join(' ')
 }
 
@@ -233,13 +203,14 @@ export default function OverviewMapLab({
   constellations,
   gateLinks,
 }: OverviewMapLabProps) {
+  const { resolvedTheme } = useTheme()
   const [mode, setMode] = useState<ModeKey>('spatial')
   const [hoveredSystem, setHoveredSystem] = useState<MapSystem | null>(null)
   const [selectedSystemId, setSelectedSystemId] = useState<number | null>(systems[0]?.id ?? null)
   const [networkQuery, setNetworkQuery] = useState('')
   const [hoveredCorridorKey, setHoveredCorridorKey] = useState<string | null>(null)
   const [selectedCorridorKey, setSelectedCorridorKey] = useState<string | null>(null)
-
+  const isDarkMode = resolvedTheme !== 'light'
   const positionedSystems = useMemo(() => normalizeSystems(systems), [systems])
   const anchors = useMemo(
     () => buildConstellationAnchors(positionedSystems, constellations),
@@ -288,46 +259,194 @@ export default function OverviewMapLab({
       ) ?? null,
     [corridors, hoveredCorridorKey, selectedCorridorKey]
   )
+  const averageDegree = useMemo(() => {
+    if (systems.length === 0) return 0
+    return Math.round((gateLinks.length * 2) / systems.length)
+  }, [gateLinks.length, systems.length])
+  const densestCorridor = corridors[0] ?? null
+
+  const activeSignals = useMemo(() => {
+    if (mode === 'spatial') {
+      return [
+        {
+          label: 'Mapped systems',
+          value: positionedSystems.length.toLocaleString('en-US'),
+          note: 'Physical points in the sampled atlas.',
+        },
+        {
+          label: 'Gate segments',
+          value: gateEdges.length.toLocaleString('en-US'),
+          note: 'Visible links threading the field.',
+        },
+        {
+          label: 'Anchor constellations',
+          value: anchors.length.toLocaleString('en-US'),
+          note: 'Cluster centers extracted from geometry.',
+        },
+      ]
+    }
+
+    if (mode === 'network') {
+      return [
+        {
+          label: 'Average degree',
+          value: averageDegree.toLocaleString('en-US'),
+          note: 'Mean gate connectivity in the current sample.',
+        },
+        {
+          label: 'Top hub',
+          value: topHubSystems[0]?.name ?? 'Unavailable',
+          note: topHubSystems[0]
+            ? `${degreeMap.get(topHubSystems[0].id) ?? 0} visible links`
+            : 'No hub signal yet.',
+        },
+        {
+          label: 'Search hits',
+          value: filteredNetworkSystems.length.toLocaleString('en-US'),
+          note:
+            networkQuery.trim().length >= 2
+              ? 'Matching systems in the current query.'
+              : 'Type at least two characters to search.',
+        },
+      ]
+    }
+
+    return [
+      {
+        label: 'Corridor set',
+        value: corridors.length.toLocaleString('en-US'),
+        note: 'Ranked constellation bridges in the sample.',
+      },
+      {
+        label: 'Strongest lane',
+        value: densestCorridor
+          ? `${densestCorridor.from.name} / ${densestCorridor.to.name}`
+          : 'Unavailable',
+        note: densestCorridor
+          ? `${densestCorridor.weight} aggregated links`
+          : 'No corridor signal yet.',
+      },
+      {
+        label: 'Regional spread',
+        value: densestCorridor
+          ? `${densestCorridor.from.regionId} / ${densestCorridor.to.regionId}`
+          : '--',
+        note: 'Regions touched by the leading corridor.',
+      },
+    ]
+  }, [
+    anchors.length,
+    averageDegree,
+    corridors.length,
+    degreeMap,
+    densestCorridor,
+    filteredNetworkSystems.length,
+    gateEdges.length,
+    mode,
+    networkQuery,
+    positionedSystems.length,
+    topHubSystems,
+  ])
 
   return (
-    <section className="rounded-[2rem] border border-slate-200/70 bg-white/85 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/75 md:p-6">
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl space-y-2">
-          <div className="text-xs uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
-            Overview Map Lab
+    <section className="overflow-hidden rounded-[2.1rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_24%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.84))] md:p-6">
+      <div className="grid gap-5 xl:grid-cols-[1.22fr_0.78fr]">
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/45">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+              <Telescope className="h-3.5 w-3.5" />
+              Cartography lab
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.26em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+              <Sparkles className="h-3.5 w-3.5" />
+              Same universe, three lenses
+            </span>
           </div>
-          <h2 className="text-2xl font-semibold text-slate-950 dark:text-white">
-            Three map directions from the same universe dataset
-          </h2>
-          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-            The current World API gives you real coordinates, constellation
-            grouping, and gate links. That makes it possible to ship one
-            cinematic atlas, one relationship view, and one operational overlay
-            without inventing fake data models.
-          </p>
+
+          <div className="mt-5 max-w-3xl">
+            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-[2.6rem]">
+              Atlas for scale.
+              <br />
+              Network for structure.
+              <br />
+              Corridor for movement.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+              The same solar-system dataset can be read as geometry, topology,
+              or traffic. Switching modes should change the question you can ask,
+              not just the skin on the canvas.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2.5">
+            {(Object.keys(modeMeta) as ModeKey[]).map((key) => {
+              const Icon = modeMeta[key].icon
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={tabClassName(mode === key)}
+                  onClick={() => setMode(key)}
+                >
+                  <Icon className="h-4 w-4 transition group-hover:scale-110" />
+                  {modeMeta[key].label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {activeSignals.map((signal) => (
+              <article
+                key={signal.label}
+                className="rounded-[1.25rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50 dark:hover:border-sky-800"
+              >
+                <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  {signal.label}
+                </div>
+                <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {signal.value}
+                </div>
+                <div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {signal.note}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(modeMeta) as ModeKey[]).map((key) => {
-            const Icon = modeMeta[key].icon
+        <div className="grid gap-4">
+          <article className="rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(240,249,255,0.86))] p-5 transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_40px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.74))] dark:hover:border-sky-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                  Active lens
+                </div>
+                <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                  {activeMode.title}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-sky-200/80 bg-sky-50/80 p-3 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300">
+                <activeMode.icon className="h-5 w-5" />
+              </div>
+            </div>
 
-            return (
-              <button
-                key={key}
-                type="button"
-                className={tabClassName(mode === key)}
-                onClick={() => setMode(key)}
-              >
-                <Icon className="h-4 w-4" />
-                {modeMeta[key].label}
-              </button>
-            )
-          })}
+            <div className="mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
+              {activeMode.stance}
+            </div>
+            <div className="mt-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 px-4 py-4 text-sm leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-950/55 dark:text-slate-200">
+              {activeMode.summary}
+            </div>
+            <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-900/55 dark:text-slate-300">
+              {activeMode.instruction}
+            </div>
+          </article>
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[linear-gradient(180deg,#020617,#0f172a_42%,#111827)] dark:border-slate-800">
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+        <div className="overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_32%),linear-gradient(180deg,#f8fbff,#eef6ff_42%,#e2e8f0)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,#020617,#0f172a_42%,#111827)]">
           {mode === 'spatial' ? (
             <OverviewSpatialAtlas
               systems={systems}
@@ -338,6 +457,7 @@ export default function OverviewMapLab({
               selectedSystemId={selectedSystemId}
               onSelectSystemId={setSelectedSystemId}
               onHoverSystem={setHoveredSystem}
+              isDarkMode={isDarkMode}
             />
           ) : mode === 'network' ? (
             <OverviewNetworkGraph
@@ -371,26 +491,6 @@ export default function OverviewMapLab({
         </div>
 
         <div className="grid gap-4">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-            <div className="mb-3 flex items-center gap-3">
-              <activeMode.icon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
-              <div>
-                <div className="text-lg font-medium text-slate-950 dark:text-white">
-                  {activeMode.title}
-                </div>
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  {activeMode.tech}
-                </div>
-              </div>
-            </div>
-            <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-              {activeMode.summary}
-            </p>
-            <p className="mt-3 rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-200">
-              {activeMode.useCase}
-            </p>
-          </article>
-
           <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/60">
             {(mode === 'spatial' || mode === 'network') && (hoveredSystem ?? selectedSystem) ? (
               <div className="mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-sky-950/20 dark:text-slate-200">
@@ -520,7 +620,7 @@ export default function OverviewMapLab({
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  Sample systems
+                  System sample
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
                   {positionedSystems.length}
@@ -528,7 +628,7 @@ export default function OverviewMapLab({
               </div>
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  Gate links
+                  Visible links
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
                   {gateEdges.length}
@@ -536,7 +636,7 @@ export default function OverviewMapLab({
               </div>
               <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                  Constellations
+                  Anchor clusters
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
                   {anchors.length}

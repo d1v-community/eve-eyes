@@ -1,8 +1,15 @@
 'use client'
 
 import { Button } from '@radix-ui/themes'
-import { AlertTriangle, Database, KeyRound, RefreshCw } from 'lucide-react'
-import { startTransition, useCallback, useEffect, useState } from 'react'
+import {
+  AlertTriangle,
+  Copy,
+  KeyRound,
+  Layers3,
+  RefreshCw,
+} from 'lucide-react'
+import { type ReactNode, startTransition, useCallback, useEffect, useState } from 'react'
+import { notification } from '~~/helpers/notification'
 
 const FREE_PAGE_LIMIT = 3
 const UI_PAGE_LIMIT = 30
@@ -50,12 +57,14 @@ type ListingResponse<TItem> = {
 type Column<TItem> = {
   key: string
   label: string
-  className?: string
-  render: (item: TItem) => string
+  mobileLabel?: string
+  render: (item: TItem) => ReactNode
+  copyValue?: (item: TItem) => string | null
 }
 
 type ListingCardProps<TItem> = {
   title: string
+  eyebrow: string
   description: string
   endpoint: string
   columns: Column<TItem>[]
@@ -98,6 +107,14 @@ function formatStatus(value: string | null) {
   return value.replaceAll('_', ' ')
 }
 
+function formatCount(value: number | null) {
+  if (value == null) {
+    return '--'
+  }
+
+  return value.toLocaleString('en-US')
+}
+
 async function parseJsonResponse<TPayload>(response: Response): Promise<TPayload> {
   const payload = (await response.json().catch(() => ({}))) as TPayload
 
@@ -126,8 +143,93 @@ function buildPageWindow(currentPage: number, totalPages: number) {
   return pages
 }
 
+function getStatusTone(status: string | null) {
+  const normalized = (status ?? '').toLowerCase()
+
+  if (normalized.includes('success')) {
+    return 'border-emerald-300/80 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+  }
+
+  if (normalized.includes('fail') || normalized.includes('error')) {
+    return 'border-red-300/80 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200'
+  }
+
+  return 'border-slate-300/80 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200'
+}
+
+function renderStatusPill(status: string | null) {
+  return (
+    <span
+      className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${getStatusTone(status)}`}
+    >
+      {formatStatus(status)}
+    </span>
+  )
+}
+
+function LoadingRows({ columnCount }: { columnCount: number }) {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, rowIndex) => (
+        <tr key={`loading-${rowIndex}`} className="animate-pulse">
+          {Array.from({ length: columnCount }).map((__, columnIndex) => (
+            <td
+              key={`loading-cell-${rowIndex}-${columnIndex}`}
+              className="border-b border-slate-200/70 px-4 py-4 dark:border-slate-800"
+            >
+              <div className="h-4 rounded-full bg-slate-200/80 dark:bg-slate-800" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  )
+}
+
+function MobileRow<TItem>({ item, columns }: { item: TItem; columns: Column<TItem>[] }) {
+  return (
+    <article className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div className="grid gap-3">
+        {columns.map((column) => (
+          <div
+            key={column.key}
+            className="grid grid-cols-[92px_minmax(0,1fr)] items-start gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 dark:border-slate-900"
+          >
+            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              {column.mobileLabel ?? column.label}
+            </div>
+            <div className="min-w-0">
+              <div className="group flex items-start gap-2">
+                <span className="min-w-0 break-all text-sm font-medium text-slate-800 dark:text-slate-100">
+                  {column.render(item)}
+                </span>
+                {column.copyValue?.(item) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const value = column.copyValue?.(item)
+                      if (!value) return
+                      void navigator.clipboard.writeText(value)
+                      notification.success('Copied to clipboard')
+                    }}
+                    className="opacity-0 transition group-hover:opacity-100"
+                    aria-label={`Copy ${column.label}`}
+                  >
+                    <Copy className="mt-0.5 h-3.5 w-3.5 text-slate-400 hover:text-sky-600 dark:text-slate-500 dark:hover:text-sky-300" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
+
 function ListingCard<TItem>({
   title,
+  eyebrow,
   description,
   endpoint,
   columns,
@@ -147,7 +249,7 @@ function ListingCard<TItem>({
       setHintMessage(null)
 
       if (targetPage > UI_PAGE_LIMIT) {
-        setHintMessage('请使用 api 查询数据。')
+        setHintMessage('Pages beyond 30 are available through the API.')
         return
       }
 
@@ -155,7 +257,7 @@ function ListingCard<TItem>({
         const nextAuthType = await refreshAuthStatus()
 
         if (nextAuthType === 'anonymous') {
-          setHintMessage('第 4 页起需要先登录才能查看。')
+          setHintMessage('Pages 4 and above require an authenticated session.')
           return
         }
       }
@@ -169,7 +271,7 @@ function ListingCard<TItem>({
 
         if (response.status === 401) {
           await refreshAuthStatus()
-          setHintMessage('第 4 页起需要先登录才能查看。')
+          setHintMessage('Pages 4 and above require an authenticated session.')
           return
         }
 
@@ -179,7 +281,7 @@ function ListingCard<TItem>({
         setPage(targetPage)
 
         if (targetPage === UI_PAGE_LIMIT && (payload.pagination?.totalPages ?? 0) > UI_PAGE_LIMIT) {
-          setHintMessage('仅展示前 30 页，更多数据请使用 api 查询。')
+          setHintMessage('This interface shows the first 30 pages. Use the API for deeper pagination.')
         }
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load data')
@@ -202,19 +304,23 @@ function ListingCard<TItem>({
   const totalPages = pagination?.totalPages ?? 1
   const visibleTotalPages = Math.min(totalPages, UI_PAGE_LIMIT)
   const pageWindow = buildPageWindow(page, totalPages)
-  const requiresLogin = page >= FREE_PAGE_LIMIT && authType === 'anonymous'
+  const gatedPagesCount = Math.max(0, visibleTotalPages - FREE_PAGE_LIMIT)
+  const visibleRecordCount = items.length
 
   return (
-    <article className="rounded-[1.8rem] border border-slate-200/70 bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/75">
+    <article className="relative overflow-hidden rounded-[1.8rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))] md:p-6">
+      <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent opacity-80" />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Indexer Listing
+          <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-sky-700 dark:border-sky-900/80 dark:bg-sky-950/40 dark:text-sky-200">
+            <Layers3 className="h-3.5 w-3.5" />
+            {eyebrow}
           </div>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+          <h3 className="mt-4 text-[1.85rem] font-semibold tracking-[-0.035em] text-slate-950 dark:text-white md:text-[2.1rem]">
             {title}
           </h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             {description}
           </p>
         </div>
@@ -231,95 +337,216 @@ function ListingCard<TItem>({
             })
           }}
           disabled={isLoading}
+          className="!rounded-full"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em]">
-        <span className="rounded-full border border-slate-200/80 bg-slate-50/90 px-3 py-1 text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-          Page {page} / {visibleTotalPages}
-        </span>
-        <span className="rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-sky-700 dark:border-sky-900 dark:bg-sky-950/35 dark:text-sky-200">
-          Pages 1-3 public
-        </span>
-        <span className="rounded-full border border-amber-300/80 bg-amber-50/90 px-3 py-1 text-amber-800 dark:border-amber-700 dark:bg-amber-950/35 dark:text-amber-200">
-          Page 31+ use API
-        </span>
+      <div className="mt-6 grid gap-3 md:grid-cols-4">
+        <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Current Page
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            {page}
+          </div>
+          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            of {visibleTotalPages}
+          </div>
+        </div>
+
+        <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Indexed Records
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            {formatCount(pagination?.total ?? null)}
+          </div>
+          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            {PAGE_SIZE} per page
+          </div>
+        </div>
+
+        <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Access Window
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+            1-3
+          </div>
+          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            public pages
+          </div>
+        </div>
+
+        <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Session State
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            {authType === 'anonymous'
+              ? renderStatusPill('anonymous')
+              : authType === 'loading'
+                ? renderStatusPill('checking')
+                : renderStatusPill('authenticated')}
+          </div>
+          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            {gatedPagesCount > 0 ? `${gatedPagesCount} gated pages in current window` : 'No gated pages'}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[1.25rem] border border-slate-200/80 bg-white/75 p-4 dark:border-slate-800 dark:bg-slate-950/45">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.24em]">
+            <span className="rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-sky-700 dark:border-sky-900 dark:bg-sky-950/35 dark:text-sky-200">
+              Pages 1-3 public
+            </span>
+            <span className="rounded-full border border-amber-300/80 bg-amber-50/90 px-3 py-1 text-amber-800 dark:border-amber-700 dark:bg-amber-950/35 dark:text-amber-200">
+              Page 4+ login required
+            </span>
+            <span className="rounded-full border border-violet-300/80 bg-violet-50/90 px-3 py-1 text-violet-800 dark:border-violet-700 dark:bg-violet-950/35 dark:text-violet-200">
+              Page 31+ use API
+            </span>
+          </div>
+          <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Showing {visibleRecordCount} rows
+          </div>
+        </div>
+
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
+          <div
+            className="h-full rounded-full bg-[linear-gradient(90deg,#0ea5e9,#22c55e,#f59e0b)] transition-all duration-300"
+            style={{ width: `${Math.min((page / UI_PAGE_LIMIT) * 100, 100)}%` }}
+          />
+        </div>
       </div>
 
       {hintMessage ? (
-        <div className="mt-4 rounded-[1.3rem] border border-amber-300/70 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="mt-5 rounded-[1.35rem] border border-amber-300/70 bg-[linear-gradient(180deg,rgba(255,251,235,0.98),rgba(254,243,199,0.9))] px-4 py-4 text-sm text-amber-900 shadow-[0_16px_36px_rgba(245,158,11,0.16)] dark:border-amber-800 dark:bg-[linear-gradient(180deg,rgba(69,26,3,0.32),rgba(120,53,15,0.22))] dark:text-amber-100">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <div>{hintMessage}</div>
-              {requiresLogin || page >= FREE_PAGE_LIMIT ? (
+            <div className="flex-1">
+              <div className="font-medium">{hintMessage}</div>
+              <div className="mt-1 text-xs uppercase tracking-[0.22em] text-amber-800/80 dark:text-amber-200/80">
+                Access guidance
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <a
                   href="/jumps#api-access"
-                  className="mt-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-amber-900 underline underline-offset-4 dark:text-amber-100"
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-400/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-amber-900 dark:border-amber-700 dark:text-amber-100"
                 >
                   <KeyRound className="h-3.5 w-3.5" />
                   Open access center
                 </a>
-              ) : null}
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="mt-4 rounded-[1.3rem] border border-red-300/70 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+        <div className="mt-5 rounded-[1.35rem] border border-red-300/70 bg-red-50/90 px-4 py-4 text-sm text-red-800 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
           {errorMessage}
         </div>
       ) : null}
 
-      <div className="mt-5 overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-0">
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={column.key}
-                  className={`border-b border-slate-200/80 px-3 py-3 text-left text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:border-slate-800 dark:text-slate-400 ${column.className ?? ''}`}
-                >
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.length > 0 ? (
-              items.map((item, rowIndex) => (
-                <tr key={(item as { id?: string }).id ?? `${title}-${rowIndex}`}>
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={`border-b border-slate-200/70 px-3 py-4 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200 ${column.className ?? ''}`}
-                    >
-                      <span className="block whitespace-nowrap">{column.render(item)}</span>
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
-                >
-                  {isLoading ? 'Loading data...' : 'No records on this page.'}
-                </td>
+      <div className="mt-6 hidden overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-slate-800 dark:bg-slate-950/55 lg:block">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-0">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-slate-50/95 dark:bg-slate-950/95">
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    className="border-b border-slate-200/80 px-4 py-4 text-left text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:border-slate-800 dark:text-slate-400"
+                  >
+                    {column.label}
+                  </th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <LoadingRows columnCount={columns.length} />
+              ) : items.length > 0 ? (
+                items.map((item, rowIndex) => (
+                  <tr
+                    key={(item as { id?: string }).id ?? `${title}-${rowIndex}`}
+                    className="transition-colors duration-150 hover:bg-sky-50/70 dark:hover:bg-slate-900/80"
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className="border-b border-slate-200/70 px-4 py-4 align-top text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                      >
+                        <div className="group flex items-start gap-2">
+                          <span className="block whitespace-nowrap">{column.render(item)}</span>
+                          {column.copyValue?.(item) ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const value = column.copyValue?.(item)
+                                if (!value) return
+                                void navigator.clipboard.writeText(value)
+                                notification.success('Copied to clipboard')
+                              }}
+                              className="opacity-0 transition group-hover:opacity-100"
+                              aria-label={`Copy ${column.label}`}
+                            >
+                              <Copy className="mt-0.5 h-3.5 w-3.5 text-slate-400 hover:text-sky-600 dark:text-slate-500 dark:hover:text-sky-300" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="px-4 py-14 text-center text-sm text-slate-500 dark:text-slate-400"
+                  >
+                    No records on this page.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-6 grid gap-3 lg:hidden">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={`mobile-loading-${index}`}
+              className="h-40 animate-pulse rounded-[1.35rem] border border-slate-200/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/70"
+            />
+          ))
+        ) : items.length > 0 ? (
+          items.map((item, rowIndex) => (
+            <MobileRow
+              key={(item as { id?: string }).id ?? `${title}-mobile-${rowIndex}`}
+              item={item}
+              columns={columns}
+            />
+          ))
+        ) : (
+          <div className="rounded-[1.35rem] border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            No records on this page.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-slate-500 dark:text-slate-400">
-          {pagination ? `${pagination.total.toLocaleString('en-US')} records indexed` : 'Fetching totals'}
+          {pagination
+            ? `${pagination.total.toLocaleString('en-US')} records indexed`
+            : 'Fetching totals'}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -335,6 +562,7 @@ function ListingCard<TItem>({
               })
             }}
             disabled={isLoading || page <= 1}
+            className="!rounded-full"
           >
             Prev
           </Button>
@@ -355,6 +583,7 @@ function ListingCard<TItem>({
                 })
               }}
               disabled={isLoading}
+              className="!rounded-full"
             >
               {pageNumber}
             </Button>
@@ -372,6 +601,7 @@ function ListingCard<TItem>({
               })
             }}
             disabled={isLoading || page >= visibleTotalPages}
+            className="!rounded-full"
           >
             Next
           </Button>
@@ -418,36 +648,11 @@ export default function OverviewIndexerTables() {
   }, [refreshAuthStatus])
 
   return (
-    <section className="grid gap-6">
-      <div className="rounded-[2rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.9))] p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.88),rgba(15,23,42,0.78))]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-              Indexer Feed
-            </div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Transaction Blocks and Move Call
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              首页底部直接浏览链上索引数据。前 3 页公开，第 4 页起需要登录，第 31 页起请改用
-              API 查询。
-            </p>
-          </div>
-
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-600 dark:border-slate-700 dark:bg-slate-950/55 dark:text-slate-300">
-            <Database className="h-3.5 w-3.5" />
-            {authType === 'loading'
-              ? 'Checking access'
-              : authType === 'anonymous'
-                ? 'Anonymous session'
-                : 'Authenticated session'}
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+    <section className="grid gap-8">
           <ListingCard<TransactionBlockItem>
-            title="Transaction blocks"
-            description="按页查看最近的 transaction block，包含 digest、sender、kind、status 和 transaction time。"
+            title="Transaction Blocks"
+            eyebrow="Primary ledger stream"
+            description="Recent transaction blocks with digest, sender, kind, status, and time arranged for fast scanning."
             endpoint="/api/indexer/transaction-blocks"
             authType={authType}
             refreshAuthStatus={refreshAuthStatus}
@@ -455,12 +660,18 @@ export default function OverviewIndexerTables() {
               {
                 key: 'digest',
                 label: 'Digest',
-                render: (item) => truncateValue(item.digest, 10, 8),
+                render: (item) => (
+                  <span className="font-data">{truncateValue(item.digest, 10, 8)}</span>
+                ),
+                copyValue: (item) => item.digest,
               },
               {
                 key: 'sender',
                 label: 'Sender',
-                render: (item) => truncateValue(item.senderAddress),
+                render: (item) => (
+                  <span className="font-data">{truncateValue(item.senderAddress)}</span>
+                ),
+                copyValue: (item) => item.senderAddress,
               },
               {
                 key: 'kind',
@@ -481,8 +692,9 @@ export default function OverviewIndexerTables() {
           />
 
           <ListingCard<MoveCallItem>
-            title="Move call"
-            description="查看 move call 明细，包含 package、module、function、交易状态和时间。"
+            title="Move Call"
+            eyebrow="Execution detail stream"
+            description="Move call details ordered for quick inspection of target, package, sender, and execution time."
             endpoint="/api/indexer/move-calls"
             authType={authType}
             refreshAuthStatus={refreshAuthStatus}
@@ -490,23 +702,37 @@ export default function OverviewIndexerTables() {
               {
                 key: 'txDigest',
                 label: 'Tx Digest',
-                render: (item) => truncateValue(item.txDigest, 10, 8),
+                render: (item) => (
+                  <span className="font-data">{truncateValue(item.txDigest, 10, 8)}</span>
+                ),
+                copyValue: (item) => item.txDigest,
               },
               {
                 key: 'target',
                 label: 'Target',
-                render: (item) =>
+                render: (item) => (
+                  <span className="font-data">
+                    {`${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`}
+                  </span>
+                ),
+                copyValue: (item) =>
                   `${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`,
               },
               {
                 key: 'package',
                 label: 'Package',
-                render: (item) => truncateValue(item.packageId),
+                render: (item) => (
+                  <span className="font-data">{truncateValue(item.packageId)}</span>
+                ),
+                copyValue: (item) => item.packageId,
               },
               {
                 key: 'sender',
                 label: 'Sender',
-                render: (item) => truncateValue(item.senderAddress),
+                render: (item) => (
+                  <span className="font-data">{truncateValue(item.senderAddress)}</span>
+                ),
+                copyValue: (item) => item.senderAddress,
               },
               {
                 key: 'time',
@@ -515,8 +741,6 @@ export default function OverviewIndexerTables() {
               },
             ]}
           />
-        </div>
-      </div>
     </section>
   )
 }

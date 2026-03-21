@@ -13,42 +13,20 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { startTransition, useEffect, useMemo, useState } from 'react'
+import { notification } from '~~/helpers/notification'
+import type {
+  MapConstellation,
+  MapLink,
+  MapSystem,
+  SearchSystem,
+} from '../../world/types'
 import AtlasSystemDetails from './AtlasSystemDetails'
 import OverviewSpatialAtlas from './OverviewSpatialAtlas'
 import SystemSearchInput from './SystemSearchInput'
-
-type MapSystem = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type SearchSystem = Pick<MapSystem, 'id' | 'name' | 'constellationId' | 'regionId'>
-
-type MapConstellation = {
-  id: number
-  name: string
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapLink = {
-  fromId: number
-  toId: number
-  toConstellationId: number
-}
+import { useAtlasQueryState } from './useAtlasQueryState'
+import { useAtlasSystemDetails } from './useAtlasSystemDetails'
 
 type RouteNode = MapSystem
 
@@ -56,19 +34,6 @@ type RouteResponse = {
   path: RouteNode[]
   hops: number
   explored: number
-}
-
-type DetailedSolarSystem = MapSystem & {
-  gateLinks: Array<{
-    id: number
-    name: string
-    destination: {
-      id: number
-      name: string
-      constellationId: number
-      regionId: number
-    }
-  }>
 }
 
 type AtlasExplorerProps = {
@@ -96,11 +61,11 @@ function MetricCard({
   value: number
 }) {
   return (
-    <article className="rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
-      <div className="text-[10px] uppercase tracking-[0.34em] text-amber-100/55">
+    <article className="rounded-[1.5rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(248,245,238,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur dark:border-amber-200/20 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-amber-100/55">
         {label}
       </div>
-      <div className="mt-2 text-3xl font-semibold text-stone-50">{value}</div>
+      <div className="mt-2 text-3xl font-semibold text-stone-950 dark:text-stone-50">{value}</div>
     </article>
   )
 }
@@ -133,26 +98,22 @@ export default function AtlasExplorer({
   constellations,
   gateLinks,
 }: AtlasExplorerProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [origin, setOrigin] = useState<SearchSystem | null>(systems[0] ?? null)
-  const [destination, setDestination] = useState<SearchSystem | null>(systems[1] ?? null)
+  const { resolvedTheme } = useTheme()
   const [hoveredSystem, setHoveredSystem] = useState<MapSystem | null>(null)
-  const [focusedSystemId, setFocusedSystemId] = useState<number | null>(null)
   const [route, setRoute] = useState<RouteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [detailSystem, setDetailSystem] = useState<DetailedSolarSystem | null>(null)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [showGateLinks, setShowGateLinks] = useState(true)
-  const [routeOnly, setRouteOnly] = useState(false)
   const [resetSignal, setResetSignal] = useState(0)
-  const [hasInitializedFromUrl, setHasInitializedFromUrl] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
-  const canSearch =
-    origin != null && destination != null && origin.id !== destination.id
+  useEffect(() => {
+    const nextIsDarkMode =
+      resolvedTheme != null
+        ? resolvedTheme === 'dark'
+        : document.documentElement.classList.contains('dark')
+
+    setIsDarkMode(nextIsDarkMode)
+  }, [resolvedTheme])
 
   const highlightedPathIds = useMemo(
     () => route?.path.map((system) => system.id) ?? [],
@@ -183,6 +144,25 @@ export default function AtlasExplorer({
       ),
     [systems]
   )
+  const {
+    destination,
+    focusedSystemId,
+    origin,
+    routeOnly,
+    setDestination,
+    setFocusedSystemId,
+    setOrigin,
+    setRouteOnly,
+    setShowGateLinks,
+    showGateLinks,
+  } = useAtlasQueryState({
+    allSystemsById,
+    searchableSystemsById,
+    initialOrigin: systems[0] ?? null,
+    initialDestination: systems[1] ?? null,
+  })
+  const canSearch =
+    origin != null && destination != null && origin.id !== destination.id
 
   const selectedSystem =
     (focusedSystemId != null
@@ -196,179 +176,13 @@ export default function AtlasExplorer({
     (selectedSystem != null ? allSystemsById.get(selectedSystem.id) : null) ??
     (selectedSystem != null && hasLocation(selectedSystem) ? selectedSystem : null)
 
-  const highlightedSet = useMemo(() => new Set(highlightedPathIds), [highlightedPathIds])
-
-  const selectedGateLinkCount = useMemo(() => {
-    if (selectedSystem == null) return 0
-
-    return gateLinks.filter(
-      (link) => link.fromId === selectedSystem.id || link.toId === selectedSystem.id
-    ).length
-  }, [gateLinks, selectedSystem])
-
   const routeDensityLabel = route
     ? `${route.hops} hops across ${route.path.length} systems`
     : 'Route overlay inactive'
 
-  const routeConstellationCount = useMemo(() => {
-    if (route == null) return 0
-    return new Set(route.path.map((system) => system.constellationId)).size
-  }, [route])
-
-  const routeRegionCount = useMemo(() => {
-    if (route == null) return 0
-    return new Set(route.path.map((system) => system.regionId)).size
-  }, [route])
-
-  const selectedConstellation = useMemo(() => {
-    if (selectedSystem == null) return null
-    return (
-      constellations.find((constellation) => constellation.id === selectedSystem.constellationId) ??
-      null
-    )
-  }, [constellations, selectedSystem])
-
-  useEffect(() => {
-    const originId = Number(searchParams.get('originId'))
-    const destinationId = Number(searchParams.get('destinationId'))
-    const focusId = Number(searchParams.get('focusId'))
-    const nextShowLinks = searchParams.get('links')
-    const nextView = searchParams.get('view')
-
-    if (Number.isFinite(originId) && searchableSystemsById.has(originId)) {
-      setOrigin(searchableSystemsById.get(originId) ?? null)
-    }
-
-    if (
-      Number.isFinite(destinationId) &&
-      searchableSystemsById.has(destinationId)
-    ) {
-      setDestination(searchableSystemsById.get(destinationId) ?? null)
-    }
-
-    if (Number.isFinite(focusId) && allSystemsById.has(focusId)) {
-      setFocusedSystemId(focusId)
-    }
-
-    if (nextShowLinks != null) {
-      setShowGateLinks(nextShowLinks !== '0')
-    }
-
-    if (nextView != null) {
-      setRouteOnly(nextView === 'route')
-    }
-
-    setHasInitializedFromUrl(true)
-  }, [allSystemsById, searchParams, searchableSystemsById])
-
-  useEffect(() => {
-    if (!hasInitializedFromUrl) return
-
-    const params = new URLSearchParams(searchParams.toString())
-
-    if (origin != null) {
-      params.set('originId', String(origin.id))
-    } else {
-      params.delete('originId')
-    }
-
-    if (destination != null) {
-      params.set('destinationId', String(destination.id))
-    } else {
-      params.delete('destinationId')
-    }
-
-    if (focusedSystemId != null) {
-      params.set('focusId', String(focusedSystemId))
-    } else {
-      params.delete('focusId')
-    }
-
-    if (!showGateLinks) {
-      params.set('links', '0')
-    } else {
-      params.delete('links')
-    }
-
-    if (routeOnly) {
-      params.set('view', 'route')
-    } else {
-      params.delete('view')
-    }
-
-    const nextQuery = params.toString()
-    const currentQuery = searchParams.toString()
-
-    if (nextQuery === currentQuery) return
-
-    router.replace(nextQuery.length > 0 ? `?${nextQuery}` : '/atlas', {
-      scroll: false,
-    })
-  }, [
-    destination,
-    focusedSystemId,
-    hasInitializedFromUrl,
-    origin,
-    routeOnly,
-    router,
-    searchParams,
-    showGateLinks,
-  ])
-
-  useEffect(() => {
-    if (selectedSystem == null) {
-      setDetailSystem(null)
-      setDetailError(null)
-      setIsDetailLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-
-    const loadDetails = async () => {
-      setIsDetailLoading(true)
-      setDetailError(null)
-
-      try {
-        const response = await fetch(`/api/world/systems/${selectedSystem.id}`, {
-          signal: controller.signal,
-        })
-        const payload = (await response.json()) as DetailedSolarSystem & {
-          error?: string
-        }
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? 'Failed to load system details')
-        }
-
-        setDetailSystem(payload)
-      } catch (requestError) {
-        if ((requestError as Error).name === 'AbortError') return
-
-        setDetailSystem(null)
-        setDetailError(
-          requestError instanceof Error
-            ? requestError.message
-            : 'Failed to load system details'
-        )
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsDetailLoading(false)
-        }
-      }
-    }
-
-    void loadDetails()
-
-    return () => controller.abort()
-  }, [selectedSystem])
-
-  useEffect(() => {
-    if (!copied) return
-
-    const timeout = window.setTimeout(() => setCopied(false), 1600)
-    return () => window.clearTimeout(timeout)
-  }, [copied])
+  const mapTooltipSystem = hoveredSystem ?? detailedSelectedSystem
+  const { detailError, detailSystem, isDetailLoading } =
+    useAtlasSystemDetails(detailedSelectedSystem)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -397,6 +211,7 @@ export default function AtlasExplorer({
         setRoute(payload)
         setFocusedSystemId(payload.path[payload.path.length - 1]?.id ?? null)
       })
+      notification.success('Route plotted successfully')
     } catch (requestError) {
       setRoute(null)
       setError(
@@ -435,7 +250,7 @@ export default function AtlasExplorer({
     await navigator.clipboard.writeText(
       `Route from ${route.path[0]?.name} to ${route.path[route.path.length - 1]?.name}\nHops: ${route.hops}\n\n${content}\n\nShare: ${shareUrl}`
     )
-    setCopied(true)
+    notification.success('Route copied to clipboard')
   }
 
   return (
@@ -444,17 +259,17 @@ export default function AtlasExplorer({
       <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-position:center] [background-size:28px_28px]" />
 
       <div className="relative grid gap-5 p-3 lg:p-4 xl:grid-cols-[22rem_minmax(0,1fr)_20rem]">
-        <section className="flex flex-col gap-4 rounded-[1.9rem] border border-[#c58b3a]/30 bg-[linear-gradient(180deg,#102033_0%,#0b1725_68%,#09111a_100%)] px-5 py-6 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_50px_rgba(7,17,28,0.34)]">
+        <section className="flex flex-col gap-4 rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,248,241,0.94),rgba(242,235,223,0.88))] px-5 py-6 text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_20px_50px_rgba(96,74,40,0.14)] dark:border-[#c58b3a]/30 dark:bg-[linear-gradient(180deg,#102033_0%,#0b1725_68%,#09111a_100%)] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_50px_rgba(7,17,28,0.34)]">
           <div className="space-y-3">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[10px] uppercase tracking-[0.38em] text-amber-100">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-400/50 bg-amber-100/60 px-3 py-1 text-[10px] uppercase tracking-[0.38em] text-amber-800 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
               <Sparkles className="h-3.5 w-3.5" />
               Nav Console
             </div>
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-stone-50">
+              <h1 className="text-3xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
                 Atlas flight deck
               </h1>
-              <p className="mt-3 text-sm leading-7 text-stone-300/88">
+              <p className="mt-3 text-sm leading-7 text-stone-600 dark:text-stone-300/88">
                 把路径规划、视角控制和节点情报压进同一套航图工作台，让地图成为主舞台，而不是背景插图。
               </p>
             </div>
@@ -465,6 +280,7 @@ export default function AtlasExplorer({
               label="Origin"
               placeholder="Search a starting solar system"
               selected={origin}
+              tone={isDarkMode ? 'dark' : 'light'}
               onSelect={(system) => {
                 setOrigin(system)
                 setFocusedSystemId(system?.id ?? null)
@@ -482,7 +298,7 @@ export default function AtlasExplorer({
                     setError(null)
                   })
                 }}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-stone-200/10 bg-stone-100/5 px-4 py-2.5 text-sm font-medium text-stone-100 transition hover:border-amber-300/40 hover:bg-stone-100/10"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-stone-200/10 dark:bg-stone-100/5 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-stone-100/10"
               >
                 <ArrowRightLeft className="h-4 w-4" />
                 Swap
@@ -494,7 +310,7 @@ export default function AtlasExplorer({
                   setRoute(null)
                   setError(null)
                 }}
-                className="inline-flex items-center justify-center rounded-2xl border border-stone-200/10 bg-stone-100/5 px-4 py-2.5 text-sm font-medium text-stone-100 transition hover:border-amber-300/40 hover:bg-stone-100/10"
+                className="inline-flex items-center justify-center rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-stone-200/10 dark:bg-stone-100/5 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-stone-100/10"
               >
                 Reset
               </button>
@@ -503,6 +319,7 @@ export default function AtlasExplorer({
               label="Destination"
               placeholder="Search a destination solar system"
               selected={destination}
+              tone={isDarkMode ? 'dark' : 'light'}
               onSelect={(system) => {
                 setDestination(system)
                 setFocusedSystemId(system?.id ?? null)
@@ -528,11 +345,11 @@ export default function AtlasExplorer({
             <MetricCard label="Gate links" value={gateLinks.length} />
           </div>
 
-          <div className="rounded-[1.5rem] border border-stone-200/10 bg-black/12 p-4">
-            <div className="text-[10px] uppercase tracking-[0.34em] text-amber-100/55">
+          <div className="rounded-[1.5rem] border border-stone-300/70 bg-white/60 p-4 dark:border-stone-200/10 dark:bg-black/12">
+            <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-amber-100/55">
               Command state
             </div>
-            <div className="mt-3 text-sm leading-6 text-stone-200">
+            <div className="mt-3 text-sm leading-6 text-stone-700 dark:text-stone-200">
               {routeDensityLabel}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -540,7 +357,7 @@ export default function AtlasExplorer({
                 type="button"
                 onClick={() => setFocusedSystemId(origin?.id ?? null)}
                 disabled={origin == null}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-300/50 bg-emerald-50/80 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100 dark:hover:bg-emerald-300/15"
               >
                 <Target className="h-3.5 w-3.5" />
                 Origin
@@ -549,7 +366,7 @@ export default function AtlasExplorer({
                 type="button"
                 onClick={() => setFocusedSystemId(destination?.id ?? null)}
                 disabled={destination == null}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-rose-100 transition hover:bg-rose-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border border-rose-300/50 bg-rose-50/80 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-300/25 dark:bg-rose-300/10 dark:text-rose-100 dark:hover:bg-rose-300/15"
               >
                 <LocateFixed className="h-3.5 w-3.5" />
                 Destination
@@ -561,7 +378,7 @@ export default function AtlasExplorer({
                   setFocusedSystemId(route.path[0]?.id ?? null)
                 }}
                 disabled={route == null}
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-200/10 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-cyan-100 transition hover:bg-cyan-200/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/50 bg-cyan-50/80 px-3 py-1.5 text-xs uppercase tracking-[0.24em] text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-cyan-200/25 dark:bg-cyan-200/10 dark:text-cyan-100 dark:hover:bg-cyan-200/15"
               >
                 <Crosshair className="h-3.5 w-3.5" />
                 Route start
@@ -570,7 +387,7 @@ export default function AtlasExplorer({
           </div>
 
           {error ? (
-            <div className="rounded-[1.4rem] border border-red-400/30 bg-red-500/12 px-4 py-3 text-sm text-red-100">
+            <div className="rounded-[1.4rem] border border-red-300/60 bg-red-50/85 px-4 py-3 text-sm text-red-700 dark:border-red-400/30 dark:bg-red-500/12 dark:text-red-100">
               {error}
             </div>
           ) : null}
@@ -626,7 +443,7 @@ export default function AtlasExplorer({
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-[1.65rem] border border-slate-200/70 dark:border-slate-800">
+          <div className="relative overflow-hidden rounded-[1.65rem] border border-slate-200/70 dark:border-slate-800">
             <OverviewSpatialAtlas
               systems={systems}
               gateLinks={gateLinks.map((link) => ({
@@ -640,136 +457,43 @@ export default function AtlasExplorer({
               showGateLinks={showGateLinks}
               routeOnly={routeOnly}
               resetSignal={resetSignal}
+              isDarkMode={isDarkMode}
               onSelectSystemId={setFocusedSystemId}
               onHoverSystem={setHoveredSystem}
             />
-          </div>
-
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
-                Focus target
-              </div>
-              <div className="mt-2 text-lg font-semibold text-stone-950 dark:text-white">
-                {selectedSystem?.name ?? 'No system selected'}
-              </div>
-              <div className="mt-1 text-sm text-stone-600 dark:text-slate-300">
-                {selectedSystem
-                  ? `Constellation ${selectedSystem.constellationId} · Region ${selectedSystem.regionId}`
-                  : 'Hover or click any node to inspect the sector.'}
-              </div>
-            </article>
-            <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
-                Linked edges
-              </div>
-              <div className="mt-2 text-lg font-semibold text-stone-950 dark:text-white">
-                {selectedGateLinkCount}
-              </div>
-              <div className="mt-1 text-sm text-stone-600 dark:text-slate-300">
-                Gate structure touching the current focus node.
-              </div>
-            </article>
-            <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
-                Path coverage
-              </div>
-              <div className="mt-2 text-lg font-semibold text-stone-950 dark:text-white">
-                {route ? route.path.length : 0}
-              </div>
-              <div className="mt-1 text-sm text-stone-600 dark:text-slate-300">
-                Visible route nodes currently promoted above the starfield.
-              </div>
-            </article>
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-            <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
-                Navigation band
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <div className="rounded-full border border-stone-300/80 bg-stone-50/80 px-3 py-1.5 text-xs text-stone-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
-                  Region {selectedSystem?.regionId ?? 'N/A'}
+            {mapTooltipSystem ? (
+              <div className="pointer-events-none absolute right-4 top-4 z-10 max-w-[18rem] rounded-[1.15rem] border border-stone-300/80 bg-white/88 px-4 py-3 text-sm shadow-[0_14px_36px_rgba(72,56,32,0.16)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/82 dark:shadow-[0_14px_36px_rgba(2,6,23,0.36)]">
+                <div className="text-[10px] uppercase tracking-[0.32em] text-stone-500 dark:text-slate-400">
+                  {hoveredSystem ? 'Hovered node' : 'Focused node'}
                 </div>
-                <div className="rounded-full border border-stone-300/80 bg-stone-50/80 px-3 py-1.5 text-xs text-stone-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
-                  Constellation {selectedSystem?.constellationId ?? 'N/A'}
+                <div className="mt-2 text-base font-semibold text-stone-950 dark:text-white">
+                  {mapTooltipSystem.name}
                 </div>
-                {selectedConstellation ? (
-                  <div className="rounded-full border border-amber-300/60 bg-amber-50/80 px-3 py-1.5 text-xs text-amber-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200">
-                    {selectedConstellation.name}
-                  </div>
-                ) : null}
-              </div>
-              <div className="mt-3 text-sm leading-6 text-stone-600 dark:text-slate-300">
-                当前焦点落在
-                {selectedSystem
-                  ? ` region ${selectedSystem.regionId} / constellation ${selectedSystem.constellationId}`
-                  : ' 未选定区域'}
-                ，用于补足地图上的空间认知层。
-              </div>
-            </article>
-            <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
-                Route spread
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-stone-300/70 bg-stone-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/55">
-                  <div className="text-xs uppercase tracking-[0.2em] text-stone-400">
-                    Regions
-                  </div>
-                  <div className="mt-1 text-lg font-semibold text-stone-950 dark:text-white">
-                    {routeRegionCount}
-                  </div>
+                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-500 dark:text-slate-400">
+                  <span className="font-data">
+                    System #{mapTooltipSystem.id} · constellation {mapTooltipSystem.constellationId} · region {mapTooltipSystem.regionId}
+                  </span>
                 </div>
-                <div className="rounded-2xl border border-stone-300/70 bg-stone-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/55">
-                  <div className="text-xs uppercase tracking-[0.2em] text-stone-400">
-                    Constellations
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                    X {formatCoordinate(mapTooltipSystem.location.x)}k
                   </div>
-                  <div className="mt-1 text-lg font-semibold text-stone-950 dark:text-white">
-                    {routeConstellationCount}
+                  <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                    Y {formatCoordinate(mapTooltipSystem.location.y)}k
+                  </div>
+                  <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                    Z {formatCoordinate(mapTooltipSystem.location.z)}k
                   </div>
                 </div>
               </div>
-            </article>
+            ) : null}
           </div>
         </section>
 
         <section className="flex flex-col gap-4 rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,249,244,0.86),rgba(243,237,228,0.74))] p-4 shadow-[0_18px_50px_rgba(72,56,32,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
           <div className="rounded-[1.55rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-stone-50/70 px-3 py-1 text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:border-slate-700 dark:text-slate-300">
-              <Crosshair className="h-3.5 w-3.5" />
-              Focus Intel
-            </div>
-            <div className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-white">
-              {selectedSystem?.name ?? 'No system selected'}
-            </div>
-            <div className="mt-2 text-sm leading-6 text-stone-600 dark:text-slate-300">
-              {selectedSystem
-                ? `System #${selectedSystem.id} is ${highlightedSet.has(selectedSystem.id) ? 'on' : 'outside'} the active route overlay.`
-                : 'Use hover for preview and click for camera lock.'}
-            </div>
-            {detailedSelectedSystem ? (
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-2xl border border-stone-300/70 bg-stone-50/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/55">
-                  X {formatCoordinate(detailedSelectedSystem.location.x)}k
-                </div>
-                <div className="rounded-2xl border border-stone-300/70 bg-stone-50/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/55">
-                  Y {formatCoordinate(detailedSelectedSystem.location.y)}k
-                </div>
-                <div className="rounded-2xl border border-stone-300/70 bg-stone-50/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/55">
-                  Z {formatCoordinate(detailedSelectedSystem.location.z)}k
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="rounded-[1.55rem] border border-stone-300/70 bg-white/70 p-4 dark:border-slate-800 dark:bg-slate-900/60">
             <div className="text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
               Route stack
-            </div>
-            <div className="mt-2 text-sm leading-6 text-stone-600 dark:text-slate-300">
-              路径层保留在右侧轨迹堆栈，地图负责空间感与对焦，侧栏负责决策与下一步动作。
             </div>
             {route ? (
               <div className="mt-4 space-y-3">
@@ -793,7 +517,7 @@ export default function AtlasExplorer({
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-[1rem] border border-stone-300/80 bg-white/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.24em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/55 dark:text-slate-300"
                   >
                     <Copy className="h-3.5 w-3.5" />
-                    {copied ? 'Copied' : 'Copy route'}
+                    Copy route
                   </button>
                   <button
                     type="button"
@@ -818,12 +542,16 @@ export default function AtlasExplorer({
                             {system.name}
                           </div>
                           <div className="mt-1 text-xs text-stone-500 dark:text-slate-400">
-                            #{system.id} · constellation {system.constellationId} · region{' '}
-                            {system.regionId}
+                            <span className="font-data">
+                              #{system.id} · constellation {system.constellationId} · region{' '}
+                              {system.regionId}
+                            </span>
                           </div>
                         </div>
                         <div className="rounded-full border border-stone-300/80 bg-stone-50/80 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:text-slate-300">
+                          <span className="font-data">
                           Stop {index + 1}
+                          </span>
                         </div>
                       </div>
                     </button>

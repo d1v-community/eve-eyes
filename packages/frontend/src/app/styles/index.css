@@ -7,7 +7,10 @@
   --sds-dark: #011631;
   --sds-pink: #fed5f4;
   --sds-blue: #4da2ff;
-  --sds-font-inter: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --sds-font-inter: var(--font-body), system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --sds-font-display: var(--font-display), system-ui, sans-serif;
+  --sds-font-body: var(--font-body), system-ui, sans-serif;
+  --sds-font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: light dark;
 
@@ -29,6 +32,28 @@ body, #root {
   align-items:center;
   min-width: 100%;
   min-height: 100vh;
+}
+
+body {
+  font-family: var(--sds-font-body);
+}
+
+h1,
+h2 {
+  font-family: var(--sds-font-display);
+}
+
+.font-display {
+  font-family: var(--sds-font-display) !important;
+}
+
+.font-body {
+  font-family: var(--sds-font-body) !important;
+}
+
+.font-data,
+.font-mono {
+  font-family: var(--sds-font-mono) !important;
 }
 
 [id] {

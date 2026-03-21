@@ -1,35 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-
-type MapSystem = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapConstellation = {
-  id: number
-  name: string
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapLink = {
-  fromId: number
-  toId: number
-  toConstellationId: number
-}
+import { projectSpatialSystemsToViewport } from '../../world/spatial-layout'
+import type { MapConstellation, MapLink, MapSystem } from '../../world/types'
 
 type Anchor = {
   id: number
@@ -62,13 +35,22 @@ type DeckHandle = {
   setProps: (props: Record<string, unknown>) => void
 }
 
+const WIDTH = 880
+const HEIGHT = 480
+const PADDING = 56
+
 function buildAnchors(systems: MapSystem[], constellations: MapConstellation[]) {
+  const projectedSystems = projectSpatialSystemsToViewport(systems, {
+    width: WIDTH,
+    height: HEIGHT,
+    padding: PADDING,
+  })
   const grouped = new Map<number, { x: number; y: number; count: number }>()
 
-  for (const system of systems) {
+  for (const system of projectedSystems) {
     const current = grouped.get(system.constellationId) ?? { x: 0, y: 0, count: 0 }
-    current.x += system.location.x
-    current.y += system.location.y
+    current.x += system.px
+    current.y += system.py
     current.count += 1
     grouped.set(system.constellationId, current)
   }
@@ -142,7 +124,7 @@ export default function OverviewCorridorDeck({
     [systems, gateLinks, anchors]
   )
   const center = useMemo(() => {
-    if (anchors.length === 0) return { x: 0, y: 0 }
+    if (anchors.length === 0) return { x: WIDTH / 2, y: HEIGHT / 2 }
 
     const sum = anchors.reduce(
       (acc, anchor) => ({ x: acc.x + anchor.x, y: acc.y + anchor.y }),
@@ -170,7 +152,7 @@ export default function OverviewCorridorDeck({
         views: new OrthographicView({ id: 'ortho' }),
         initialViewState: {
           target: [center.x, center.y, 0],
-          zoom: -12,
+          zoom: 0,
         },
         getTooltip: ({ object }: { object?: Corridor | Anchor }) => {
           if (object == null) return null
@@ -232,9 +214,9 @@ export default function OverviewCorridorDeck({
   }, [anchors, center.x, center.y, corridors, onHoverCorridor, onSelectCorridor, selectedCorridorKey])
 
   return (
-    <div className="relative h-[480px] w-full overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#020617,#0f172a_42%,#111827)] dark:border-slate-800">
+    <div className="relative h-[480px] w-full overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#f8fbff,#eef6ff_42%,#e2e8f0)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#020617,#0f172a_42%,#111827)]">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-slate-950/25 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/70 to-transparent dark:from-slate-950/25" />
     </div>
   )
 }

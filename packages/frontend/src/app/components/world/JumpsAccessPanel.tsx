@@ -1,19 +1,16 @@
 'use client'
 
 import {
-  useCurrentAccount,
   useCurrentWallet,
-  useSignPersonalMessage,
 } from '@mysten/dapp-kit'
 import { Button, TextField } from '@radix-ui/themes'
 import {
   KeyRound,
+  LoaderCircle,
   LockKeyhole,
-  LogOut,
   RefreshCw,
   ShieldCheck,
   TimerReset,
-  Wallet,
 } from 'lucide-react'
 import { startTransition, useCallback, useEffect, useState } from 'react'
 
@@ -46,8 +43,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 })
 
-const encoder = new TextEncoder()
-
 function formatDate(value: string | null) {
   if (!value) {
     return 'Never'
@@ -77,9 +72,7 @@ async function parseJsonResponse(response: Response) {
 }
 
 export default function JumpsAccessPanel() {
-  const currentAccount = useCurrentAccount()
-  const { currentWallet, isConnected } = useCurrentWallet()
-  const signPersonalMessage = useSignPersonalMessage()
+  const { currentWallet } = useCurrentWallet()
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -149,79 +142,6 @@ export default function JumpsAccessPanel() {
     })
   }, [loadApiKeys, user])
 
-  async function handleLogin() {
-    if (!currentAccount?.address) {
-      setErrorMessage('Connect a wallet before signing in.')
-      return
-    }
-
-    setIsSubmitting(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
-    try {
-      const challengeResponse = await fetch('/api/auth/challenge', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress: currentAccount.address,
-        }),
-      })
-      const challengePayload = await parseJsonResponse(challengeResponse)
-      const challenge = challengePayload.challenge
-      const signed = await signPersonalMessage.mutateAsync({
-        message: encoder.encode(challenge.message),
-      })
-      const loginResponse = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          challengeId: challenge.id,
-          walletAddress: currentAccount.address,
-          walletName: currentWallet?.name ?? null,
-          bytes: signed.bytes,
-          signature: signed.signature,
-        }),
-      })
-
-      await parseJsonResponse(loginResponse)
-      await loadSession()
-      await loadApiKeys()
-      setSuccessMessage('Wallet authenticated. JWT session is active.')
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to sign in')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleLogout() {
-    setIsSubmitting(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-
-      await parseJsonResponse(response)
-      setUser(null)
-      setAuthType('anonymous')
-      setApiKeys([])
-      setLatestCreatedApiKey(null)
-      setSuccessMessage('JWT session cleared.')
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to log out')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   async function handleCreateApiKey() {
     setIsSubmitting(true)
     setErrorMessage(null)
@@ -269,16 +189,13 @@ export default function JumpsAccessPanel() {
     }
   }
 
-  const walletMatchesSession =
-    !currentAccount?.address ||
-    !user?.walletAddress ||
-    currentAccount.address.trim().toLowerCase() === user.walletAddress
+  const activeApiKeyCount = apiKeys.filter((item) => item.revokedAt == null).length
 
   return (
     <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.95fr_1.05fr]">
-      <article className="rounded-[1.9rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.84))]">
+      <article className="rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.86))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/80 px-3 py-1.5 text-xs uppercase tracking-[0.28em] text-sky-700 shadow-[0_10px_24px_rgba(14,165,233,0.08)] dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
             <LockKeyhole className="h-3.5 w-3.5" />
             Access
           </div>
@@ -299,27 +216,26 @@ export default function JumpsAccessPanel() {
               })
             }}
             disabled={isRefreshing || isSubmitting}
+            className="!h-11 !rounded-full !border !border-slate-200/80 !bg-white/90 !px-4 !font-semibold !text-slate-700 !shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition hover:!translate-y-[-1px] hover:!bg-white dark:!border-slate-700 dark:!bg-slate-950/55 dark:!text-slate-100"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            {isRefreshing ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {isRefreshing ? 'Refreshing' : 'Refresh'}
           </Button>
         </div>
 
-        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">
-          API Access Center
+        <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-4xl">
+          API Keys
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-          Pages 1 to 3 stay public. Page 4 and beyond require either a wallet-authenticated JWT
-          session or a user-generated API key limited to 5 requests per second.
+        <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+          JWT for browser sessions. API keys for automation.
         </p>
 
-        <div className="mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.26em] text-amber-900 shadow-[0_10px_24px_rgba(245,158,11,0.22)] dark:border-amber-700 dark:bg-amber-500/20 dark:text-amber-100">
-          <KeyRound className="h-3.5 w-3.5" />
-          Wallet Login and API Key Management
-        </div>
-
         <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Session
             </div>
@@ -333,49 +249,30 @@ export default function JumpsAccessPanel() {
             </div>
           </div>
 
-          <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Wallet
             </div>
             <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
-              {currentAccount?.address ? truncateValue(currentAccount.address) : 'Not connected'}
+              {user?.walletAddress ? truncateValue(user.walletAddress) : 'Not connected'}
             </div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              {currentWallet?.name ?? 'Use the wallet button in the header.'}
+              {user?.walletName ?? currentWallet?.name ?? 'Wallet-authenticated session'}
             </div>
           </div>
 
-          <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Active API keys
             </div>
             <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
-              {apiKeys.filter((item) => item.revokedAt == null).length}
+              {activeApiKeyCount}
             </div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Revoked keys stop working immediately.
             </div>
           </div>
         </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Button onClick={handleLogin} disabled={!isConnected || isSubmitting}>
-            <Wallet className="h-4 w-4" />
-            Sign In With Wallet
-          </Button>
-
-          <Button variant="soft" onClick={handleLogout} disabled={!user || isSubmitting}>
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-
-        {!walletMatchesSession ? (
-          <div className="mt-4 rounded-[1.3rem] border border-amber-300/70 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
-            The connected wallet does not match the active JWT session. Sign in again to rotate the
-            session.
-          </div>
-        ) : null}
 
         {errorMessage ? (
           <div className="mt-4 rounded-[1.3rem] border border-red-300/70 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
@@ -390,7 +287,7 @@ export default function JumpsAccessPanel() {
         ) : null}
 
         {user ? (
-          <div className="mt-5 rounded-[1.5rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="mt-5 rounded-[1.55rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               <ShieldCheck className="h-4 w-4" />
               Current User
@@ -413,28 +310,48 @@ export default function JumpsAccessPanel() {
         ) : null}
       </article>
 
-      <article className="rounded-[1.9rem] border border-slate-200/70 bg-white/90 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/78">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-          <KeyRound className="h-4 w-4" />
-          API Keys
+      <article className="rounded-[2rem] border border-slate-200/70 bg-white/92 p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/80">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+              <KeyRound className="h-4 w-4" />
+              API Keys
+            </div>
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+              Create and manage keys
+            </h3>
+          </div>
+          <div className="rounded-full border border-slate-200/80 bg-slate-50/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
+            {activeApiKeyCount} active
+          </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+        <div className="mt-4 grid gap-3 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] md:grid-cols-[1fr_auto] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.88))]">
           <TextField.Root
             value={apiKeyName}
             onChange={(event) => setApiKeyName(event.target.value)}
             placeholder="Indexer access"
             disabled={!user || isSubmitting}
+            className="!h-12 !rounded-full [&_input]:!rounded-full [&_input]:!border-0 [&_input]:!bg-white [&_input]:!px-4 [&_input]:!text-[15px] [&_input]:!shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:[&_input]:!bg-slate-950/70"
           />
-          <Button onClick={handleCreateApiKey} disabled={!user || isSubmitting}>
-            Create Key
+          <Button
+            onClick={handleCreateApiKey}
+            disabled={!user || isSubmitting}
+            className="!h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-5 !font-semibold !text-white !shadow-[0_18px_40px_rgba(14,165,233,0.26)] transition hover:!translate-y-[-1px] hover:!shadow-[0_22px_44px_rgba(14,165,233,0.32)] disabled:!translate-y-0 disabled:!opacity-60"
+          >
+            {isSubmitting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="h-4 w-4" />
+            )}
+            {isSubmitting ? 'Creating' : 'Create Key'}
           </Button>
         </div>
 
         {latestCreatedApiKey ? (
-          <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-emerald-50/90 p-4 dark:border-emerald-900/70 dark:bg-emerald-950/25">
+          <div className="mt-4 rounded-[1.5rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] p-4 shadow-[0_16px_34px_rgba(16,185,129,0.08)] dark:border-emerald-900/70 dark:bg-emerald-950/25">
             <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
-              Newly created API key
+              Copy now
             </div>
             <div className="mt-2 break-all font-mono text-sm text-emerald-900 dark:text-emerald-100">
               {latestCreatedApiKey}
@@ -447,7 +364,7 @@ export default function JumpsAccessPanel() {
             apiKeys.map((apiKey) => (
               <div
                 key={apiKey.id}
-                className="rounded-[1.4rem] border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/55"
+                className="rounded-[1.55rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.92))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.86))]"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -460,7 +377,7 @@ export default function JumpsAccessPanel() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="rounded-full border border-slate-200/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                    <div className="rounded-full border border-slate-200/80 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
                       {apiKey.rateLimitTps} TPS
                     </div>
                     <Button
@@ -468,6 +385,7 @@ export default function JumpsAccessPanel() {
                       color="red"
                       onClick={() => handleRevokeApiKey(apiKey.id)}
                       disabled={Boolean(apiKey.revokedAt) || isSubmitting}
+                      className="!h-10 !rounded-full !border !border-rose-200 !bg-rose-50 !px-4 !font-semibold !text-rose-700 transition hover:!translate-y-[-1px] hover:!bg-rose-100 disabled:!opacity-45 dark:!border-rose-900/70 dark:!bg-rose-950/35 dark:!text-rose-100"
                     >
                       <TimerReset className="h-4 w-4" />
                       Revoke
@@ -492,7 +410,7 @@ export default function JumpsAccessPanel() {
               </div>
             ))
           ) : (
-            <div className="rounded-[1.4rem] border border-dashed border-slate-300 px-4 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:text-slate-300">
+            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/60 px-4 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
               {user
                 ? 'No API keys yet. Create one to call page 4 and beyond from your own scripts.'
                 : 'Sign in first, then create an API key for server-to-server access.'}
@@ -500,9 +418,9 @@ export default function JumpsAccessPanel() {
           )}
         </div>
 
-        <div className="mt-5 rounded-[1.5rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(241,245,249,0.92))] p-4 dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.8))]">
+        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.8))]">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Query examples
+            Examples
           </div>
           <pre className="mt-3 overflow-x-auto rounded-[1.2rem] border border-slate-200/80 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 dark:border-slate-800">
 {`curl '/api/indexer/transaction-blocks?page=1&pageSize=20'

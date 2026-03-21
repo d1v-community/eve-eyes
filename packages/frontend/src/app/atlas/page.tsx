@@ -1,64 +1,41 @@
 import AtlasExplorer from '../components/world/AtlasExplorer'
-import { getSolarSystem, listConstellations, listSolarSystems } from '../world/api'
+import OverviewMapLab from '../components/world/OverviewMapLab'
+import { getAtlasViewData } from '../world/atlas'
 
 export default async function AtlasPage() {
-  const [solarSystemsResult, constellationsResult] = await Promise.all([
-    listSolarSystems(72),
-    listConstellations(18),
-  ])
-
-  const sampleSystems = solarSystemsResult.data?.data ?? []
-  const sampleConstellations = constellationsResult.data?.data ?? []
-  const detailResults = await Promise.all(
-    sampleSystems.slice(0, 20).map((system) => getSolarSystem(system.id))
-  )
-
-  const gateLinks = detailResults.flatMap((result, index) => {
-    const sourceSystem = sampleSystems[index]
-
-    if (result.data == null || sourceSystem == null) return []
-
-    return result.data.gateLinks.map((gate) => ({
-      fromId: sourceSystem.id,
-      toId: gate.destination.id,
-      toConstellationId: gate.destination.constellationId,
-    }))
-  })
-
-  const systemsForMap = new Map(sampleSystems.map((system) => [system.id, system]))
-
-  for (const result of detailResults) {
-    if (result.data == null) continue
-
-    systemsForMap.set(result.data.id, result.data)
-
-    for (const gate of result.data.gateLinks) {
-      systemsForMap.set(gate.destination.id, gate.destination)
-    }
-  }
-
-  const constellationsForMap = new Map(
-    sampleConstellations.map((constellation) => [constellation.id, constellation])
-  )
-
-  for (const system of systemsForMap.values()) {
-    if (constellationsForMap.has(system.constellationId)) continue
-
-    constellationsForMap.set(system.constellationId, {
-      id: system.constellationId,
-      name: `Constellation ${system.constellationId}`,
-      regionId: system.regionId,
-      location: system.location,
-    })
-  }
+  const { systems, constellations, gateLinks, status } = await getAtlasViewData()
+  const isPartial = status.messages.length > 0 || status.detailFailures > 0
 
   return (
     <div className="flex w-full max-w-[108rem] flex-col gap-6 px-3 lg:px-4">
-      <AtlasExplorer
-        systems={[...systemsForMap.values()]}
-        constellations={[...constellationsForMap.values()]}
-        gateLinks={gateLinks}
-      />
+      <section
+        className={`rounded-[1.35rem] border px-4 py-3 text-sm shadow-sm ${
+          isPartial
+            ? 'border-amber-300/70 bg-amber-50/80 text-amber-950'
+            : 'border-emerald-300/70 bg-emerald-50/80 text-emerald-950'
+        }`}
+      >
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[10px] uppercase tracking-[0.3em]">
+            Atlas dataset
+          </span>
+          <span>{systems.length} systems</span>
+          <span>{constellations.length} constellations</span>
+          <span>{gateLinks.length} gate links</span>
+          <span>
+            {isPartial
+              ? `Partial data${status.detailFailures > 0 ? ` · ${status.detailFailures} detail fetches failed` : ''}`
+              : 'All sampled sources loaded'}
+          </span>
+        </div>
+        {status.messages.length > 0 ? (
+          <div className="mt-2 text-xs leading-5 opacity-80">
+            {status.messages.join(' · ')}
+          </div>
+        ) : null}
+      </section>
+      <AtlasExplorer systems={systems} constellations={constellations} gateLinks={gateLinks} />
+      <OverviewMapLab systems={systems} constellations={constellations} gateLinks={gateLinks} />
     </div>
   )
 }

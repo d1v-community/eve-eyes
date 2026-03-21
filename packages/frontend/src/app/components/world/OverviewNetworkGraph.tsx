@@ -1,23 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-
-type MapSystem = {
-  id: number
-  name: string
-  constellationId: number
-  regionId: number
-  location: {
-    x: number
-    y: number
-    z: number
-  }
-}
-
-type MapLink = {
-  fromId: number
-  toId: number
-}
+import { normalizeSpatialSystems } from '../../world/spatial-layout'
+import type { MapLink, MapSystem } from '../../world/types'
 
 type PositionedSystem = MapSystem & {
   x: number
@@ -26,7 +11,7 @@ type PositionedSystem = MapSystem & {
 
 type OverviewNetworkGraphProps = {
   systems: MapSystem[]
-  gateLinks: MapLink[]
+  gateLinks: Array<Pick<MapLink, 'fromId' | 'toId'>>
   onHoverSystem: (system: MapSystem | null) => void
   onSelectSystemId?: (systemId: number) => void
   selectedSystemId?: number | null
@@ -47,27 +32,10 @@ function getRegionColor(regionId: number) {
 }
 
 function normalizeSystems(systems: MapSystem[]): PositionedSystem[] {
-  if (systems.length === 0) return []
-
-  let minX = Infinity
-  let maxX = -Infinity
-  let minY = Infinity
-  let maxY = -Infinity
-
-  for (const system of systems) {
-    if (system.location.x < minX) minX = system.location.x
-    if (system.location.x > maxX) maxX = system.location.x
-    if (system.location.y < minY) minY = system.location.y
-    if (system.location.y > maxY) maxY = system.location.y
-  }
-
-  const rangeX = maxX - minX || 1
-  const rangeY = maxY - minY || 1
-
-  return systems.map((system) => ({
+  return normalizeSpatialSystems(systems).map((system) => ({
     ...system,
-    x: ((system.location.x - minX) / rangeX - 0.5) * 18,
-    y: ((system.location.y - minY) / rangeY - 0.5) * 12,
+    x: system.position[0] / 40,
+    y: system.position[1] / 40,
   }))
 }
 
@@ -170,9 +138,9 @@ export default function OverviewNetworkGraph({
   }, [gateLinks, onHoverSystem, onSelectSystemId, positionedSystems, selectedSystemId])
 
   return (
-    <div className="relative h-[480px] w-full overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#020617,#0f172a_42%,#111827)] dark:border-slate-800">
+    <div className="relative h-[480px] w-full overflow-hidden rounded-[1.75rem] border border-slate-200/70 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#f8fbff,#eef6ff_42%,#e2e8f0)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(180deg,#020617,#0f172a_42%,#111827)]">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-slate-950/25 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/70 to-transparent dark:from-slate-950/25" />
     </div>
   )
 }
