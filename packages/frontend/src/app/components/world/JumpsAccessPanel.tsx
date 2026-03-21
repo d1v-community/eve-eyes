@@ -275,7 +275,7 @@ export default function JumpsAccessPanel() {
     currentAccount.address.trim().toLowerCase() === user.walletAddress
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+    <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.95fr_1.05fr]">
       <article className="rounded-[1.9rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.9),rgba(15,23,42,0.84))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
@@ -305,13 +305,18 @@ export default function JumpsAccessPanel() {
           </Button>
         </div>
 
-        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-          Wallet sign-in, JWT session, and API key control in one place.
+        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">
+          API Access Center
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
           Pages 1 to 3 stay public. Page 4 and beyond require either a wallet-authenticated JWT
           session or a user-generated API key limited to 5 requests per second.
         </p>
+
+        <div className="mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.26em] text-amber-900 shadow-[0_10px_24px_rgba(245,158,11,0.22)] dark:border-amber-700 dark:bg-amber-500/20 dark:text-amber-100">
+          <KeyRound className="h-3.5 w-3.5" />
+          Wallet Login and API Key Management
+        </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/55">

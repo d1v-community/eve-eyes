@@ -1,5 +1,6 @@
 import { Activity, Orbit, ShieldCheck } from 'lucide-react'
 import NetworkSupportChecker from './components/NetworkSupportChecker'
+import OverviewIndexerTables from './components/world/OverviewIndexerTables'
 import OverviewModuleGrid from './components/world/OverviewModuleGrid'
 import OverviewMapLab from './components/world/OverviewMapLab'
 import { getModuleCallCounts } from './server/indexer/repository.mjs'
@@ -83,7 +84,7 @@ export default async function Home() {
       <NetworkSupportChecker />
       <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
         <section className="overflow-hidden rounded-[2.2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_30%),radial-gradient(circle_at_85%_15%,_rgba(56,189,248,0.14),_transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.92))] p-4 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(29,78,216,0.18),_transparent_20%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,0.88))] md:p-6">
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-4 xl:grid-cols-[1.18fr_0.82fr]">
             <div className="rounded-[1.9rem] border border-slate-200/70 bg-white/60 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/40 md:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.32em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200">
@@ -109,49 +110,50 @@ export default async function Home() {
                 </p>
               </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
-                <div className="group rounded-[1.45rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.82))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_16px_36px_rgba(56,189,248,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.72),rgba(15,23,42,0.64))] dark:hover:border-sky-800">
-                  <div className="flex items-center justify-between gap-3">
+              <div className="mt-8 rounded-[1.55rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.82))] p-4 transition duration-200 hover:border-sky-300 hover:shadow-[0_18px_40px_rgba(56,189,248,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.72),rgba(15,23,42,0.64))] dark:hover:border-sky-800">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
                     <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Universe reach
+                      System footprint
                     </div>
-                    <Orbit className="h-4 w-4 text-slate-500 transition group-hover:rotate-12 group-hover:text-sky-500 dark:text-slate-300 dark:group-hover:text-sky-300" />
+                    <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      Universe coverage and trust state, compressed into one read.
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-end gap-4">
-                    <div>
-                      <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                        {numberFormatter.format(totalSystems)}
-                      </div>
-                      <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                        Systems
-                      </div>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-xl border border-sky-200/70 bg-sky-50/70 p-2.5 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-300">
+                      <Orbit className="h-4 w-4" />
                     </div>
-                    <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
-                    <div>
-                      <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                        {numberFormatter.format(totalConstellations)}
-                      </div>
-                      <div className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                        Constellations
-                      </div>
+                    <div className="rounded-xl border border-sky-200/70 bg-sky-50/70 p-2.5 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-300">
+                      <ShieldCheck className="h-4 w-4" />
                     </div>
                   </div>
                 </div>
 
-                <div className="group rounded-[1.45rem] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(239,246,255,0.82))] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_16px_36px_rgba(56,189,248,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.72),rgba(15,23,42,0.64))] dark:hover:border-sky-800">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Trust signal
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/45">
+                    <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      {numberFormatter.format(totalSystems)}
                     </div>
-                    <ShieldCheck className="h-4 w-4 text-slate-500 transition group-hover:scale-110 group-hover:text-sky-500 dark:text-slate-300 dark:group-hover:text-sky-300" />
+                    <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Systems
+                    </div>
                   </div>
-                  <div className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                    {signingKey?.slice(0, 12) ?? 'Unavailable'}
+                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/45">
+                    <div className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      {numberFormatter.format(totalConstellations)}
+                    </div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Constellations
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    {signingKey
-                      ? 'POD verification key online.'
-                      : configResult.error ?? 'Signing configuration missing.'}
+                  <div className="rounded-[1.15rem] border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/45">
+                    <div className="truncate text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                      {signingKey?.slice(0, 12) ?? 'Unavailable'}
+                    </div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Verify key
+                    </div>
                   </div>
                 </div>
               </div>
@@ -283,6 +285,8 @@ export default async function Home() {
           constellations={[...constellationsForMap.values()]}
           gateLinks={gateLinks}
         />
+
+        <OverviewIndexerTables />
       </div>
     </>
   )

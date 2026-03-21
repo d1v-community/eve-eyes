@@ -3,7 +3,7 @@
 import { useCurrentWallet } from '@mysten/dapp-kit'
 import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
-import { Compass, FolderKanban, Radar } from 'lucide-react'
+import { Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -82,9 +82,13 @@ const Header = () => {
                 </Link>
               )
             })}
-            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs uppercase tracking-[0.24em] text-amber-700 dark:border-amber-900/80 dark:bg-amber-950/40 dark:text-amber-300">
-              Jumps require server token
-            </span>
+            <Link
+              href="/jumps#api-access"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-amber-900 shadow-[0_10px_24px_rgba(245,158,11,0.22)] transition hover:-translate-y-0.5 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              <span>API Access</span>
+            </Link>
           </nav>
         </div>
       </div>
