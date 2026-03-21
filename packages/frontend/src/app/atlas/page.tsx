@@ -9,14 +9,14 @@ export default async function AtlasPage() {
   return (
     <div className="flex w-full max-w-[108rem] flex-col gap-6 px-3 lg:px-4">
       <section
-        className={`rounded-[1.35rem] border px-4 py-3 text-sm shadow-sm ${
+        className={`rounded-[1.35rem] border px-4 py-3 text-sm shadow-sm backdrop-blur ${
           isPartial
-            ? 'border-amber-300/70 bg-amber-50/80 text-amber-950'
-            : 'border-emerald-300/70 bg-emerald-50/80 text-emerald-950'
+            ? 'border-amber-300/70 bg-amber-50/80 text-amber-950 dark:border-amber-700/60 dark:bg-[linear-gradient(135deg,rgba(34,18,6,0.96),rgba(26,14,8,0.92))] dark:text-amber-100'
+            : 'border-emerald-300/70 bg-emerald-50/80 text-emerald-950 dark:border-emerald-800/60 dark:bg-[linear-gradient(135deg,rgba(6,30,22,0.96),rgba(6,24,18,0.92))] dark:text-emerald-100'
         }`}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="text-[10px] uppercase tracking-[0.3em]">
+          <span className="font-display text-[10px] uppercase tracking-[0.3em]">
             Atlas dataset
           </span>
           <span>{systems.length} systems</span>

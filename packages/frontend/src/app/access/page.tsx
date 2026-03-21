@@ -20,10 +20,11 @@ export default async function AccessPage() {
           </div>
         </div>
         <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-5xl">
-          Keys, auth, and protected queries.
+          Keys, auth, and indexed query docs.
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-          Wallet login unlocks JWT access. API keys handle automation.
+          Wallet login unlocks JWT access. API keys handle automation. Transaction Blocks
+          and Move Call filters are documented below with copy-ready examples.
         </p>
       </section>
 

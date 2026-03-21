@@ -414,8 +414,13 @@ export default function AtlasRoutePlanner() {
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300">
-            {error}
+          <div className="rounded-[1.4rem] border border-red-300/70 bg-[linear-gradient(135deg,rgba(254,242,242,0.96),rgba(254,226,226,0.9))] px-4 py-3 text-sm text-red-800 shadow-[0_14px_32px_rgba(239,68,68,0.08)] dark:border-red-900/70 dark:bg-[linear-gradient(135deg,rgba(40,10,16,0.96),rgba(26,8,12,0.92))] dark:text-red-200">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-red-700 dark:text-red-300">
+              Route status
+            </div>
+            <div className="mt-1 font-medium">
+              {error}
+            </div>
           </div>
         ) : null}
 

@@ -5,11 +5,10 @@ import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
 import { Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import Logo from '../../assets/logo.svg'
 import CustomConnectButton from '../CustomConnectButton'
+import LogoMark from '../LogoMark'
 import { headerNavigation, operationsNavigation } from '~~/world/roadmap'
 
 type HeaderHref = (typeof headerNavigation)[number]['href']
@@ -35,19 +34,13 @@ const Header = () => {
             href="/"
             className="flex flex-col items-center justify-center gap-1 text-sds-dark outline-none hover:no-underline sm:flex-row dark:text-sds-light"
           >
-            <Image
-              width={40}
-              height={40}
-              src={Logo}
-              alt="Logo"
-              className="h-12 w-12"
-            />
+            <LogoMark className="h-12 w-12 shrink-0" title="Logo" />
             <div>
               <div className="font-display pt-1 text-xl font-semibold tracking-[-0.03em] sm:text-2xl">
                 {APP_NAME}
               </div>
               <div className="font-body text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                World API cockpit
+                Look on Chain
               </div>
             </div>
           </Link>
@@ -76,11 +69,10 @@ const Header = () => {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`font-body inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold tracking-[0.01em] transition ${
-                    isActive
+                  className={`font-body inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold tracking-[0.01em] transition ${isActive
                       ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-200'
                       : 'border-slate-200/80 bg-white/75 text-slate-700 hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-sky-700 dark:hover:text-sky-300'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
@@ -89,11 +81,10 @@ const Header = () => {
             })}
             <Link
               href="/access"
-              className={`font-display inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] shadow-[0_10px_24px_rgba(245,158,11,0.22)] transition hover:-translate-y-0.5 ${
-                isApiAccessActive
+              className={`font-display inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] shadow-[0_10px_24px_rgba(245,158,11,0.22)] transition hover:-translate-y-0.5 ${isApiAccessActive
                   ? 'border-amber-400 bg-amber-200 text-amber-950 dark:border-amber-500 dark:bg-amber-500/35 dark:text-amber-50'
                   : 'border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30'
-              }`}
+                }`}
             >
               <KeyRound className="h-3.5 w-3.5" />
               <span>API Access</span>

@@ -13,9 +13,9 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { notification } from '~~/helpers/notification'
+import { useTheme } from '../../providers/ThemeProvider'
 import type {
   MapConstellation,
   MapLink,
@@ -23,7 +23,9 @@ import type {
   SearchSystem,
 } from '../../world/types'
 import AtlasSystemDetails from './AtlasSystemDetails'
-import OverviewSpatialAtlas from './OverviewSpatialAtlas'
+import OverviewSpatialAtlas, {
+  type AtlasTooltipAnchor,
+} from './OverviewSpatialAtlas'
 import SystemSearchInput from './SystemSearchInput'
 import { useAtlasQueryState } from './useAtlasQueryState'
 import { useAtlasSystemDetails } from './useAtlasSystemDetails'
@@ -61,7 +63,7 @@ function MetricCard({
   value: number
 }) {
   return (
-    <article className="rounded-[1.45rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(248,245,238,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur dark:border-amber-200/20 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+    <article className="rounded-[1.45rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(248,245,238,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur dark:border-slate-700/70 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.92),rgba(10,18,32,0.86))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-amber-100/55">
         {label}
       </div>
@@ -79,9 +81,11 @@ export default function AtlasExplorer({
 }: AtlasExplorerProps) {
   const { resolvedTheme } = useTheme()
   const [hoveredSystem, setHoveredSystem] = useState<MapSystem | null>(null)
+  const [hoveredAnchor, setHoveredAnchor] = useState<AtlasTooltipAnchor | null>(null)
   const [route, setRoute] = useState<RouteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [routeFeedbackActive, setRouteFeedbackActive] = useState(false)
   const [resetSignal, setResetSignal] = useState(0)
   const [isDarkMode, setIsDarkMode] = useState(false)
 
@@ -158,7 +162,8 @@ export default function AtlasExplorer({
   const routeDensityLabel = route
     ? `${route.hops} hops across ${route.path.length} systems`
     : 'Route overlay inactive'
-  const mapTooltipSystem = hoveredSystem ?? detailedSelectedSystem
+  const mapTooltipSystem = hoveredSystem
+  const mapTooltipAnchor = hoveredAnchor
   const { detailError, detailSystem, isDetailLoading } =
     useAtlasSystemDetails(detailedSelectedSystem)
 
@@ -167,11 +172,13 @@ export default function AtlasExplorer({
 
     if (!canSearch) {
       setError('Choose two different solar systems to calculate a route.')
+      notification.error(null, 'Choose two different solar systems to calculate a route.')
       return
     }
 
     setIsLoading(true)
     setError(null)
+    const toastId = notification.loading('Plotting route...')
 
     try {
       const response = await fetch(
@@ -189,13 +196,20 @@ export default function AtlasExplorer({
         setRoute(payload)
         setFocusedSystemId(payload.path[payload.path.length - 1]?.id ?? null)
       })
-      notification.success('Route plotted successfully')
+      setRouteFeedbackActive(true)
+      window.setTimeout(() => setRouteFeedbackActive(false), 1600)
+      notification.success('Route plotted successfully', toastId)
     } catch (requestError) {
       setRoute(null)
-      setError(
+      const message =
         requestError instanceof Error
           ? requestError.message
           : 'Route search failed'
+      setError(message)
+      notification.error(
+        requestError instanceof Error ? requestError : null,
+        message,
+        toastId
       )
     } finally {
       setIsLoading(false)
@@ -216,13 +230,13 @@ export default function AtlasExplorer({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-[2.2rem] border border-stone-300/70 bg-[linear-gradient(135deg,#f6efe2_0%,#efe4d3_38%,#d9e1e7_100%)] shadow-[0_32px_120px_rgba(40,32,20,0.14)] dark:border-stone-800 dark:bg-[linear-gradient(135deg,#07111c_0%,#0b1c2d_42%,#111827_100%)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,119,6,0.16),transparent_24%),radial-gradient(circle_at_70%_12%,rgba(15,118,110,0.10),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.12),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_24%),radial-gradient(circle_at_70%_12%,rgba(45,212,191,0.12),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_24%)]" />
+    <div className="relative overflow-hidden rounded-[2.2rem] border border-stone-300/70 bg-[linear-gradient(135deg,#f6efe2_0%,#efe4d3_38%,#d9e1e7_100%)] shadow-[0_32px_120px_rgba(40,32,20,0.14)] dark:border-slate-800/90 dark:bg-[linear-gradient(135deg,#030712_0%,#07111c_28%,#081a2b_62%,#0b1120_100%)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,119,6,0.16),transparent_24%),radial-gradient(circle_at_70%_12%,rgba(15,118,110,0.10),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.12),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.08),transparent_24%),radial-gradient(circle_at_70%_12%,rgba(45,212,191,0.08),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_20%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-position:center] [background-size:28px_28px]" />
 
       <div className="relative grid gap-4 p-3 lg:p-4">
         <div className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-          <section className="flex flex-col gap-4 rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,248,241,0.94),rgba(242,235,223,0.88))] px-5 py-6 text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_20px_50px_rgba(96,74,40,0.14)] dark:border-[#c58b3a]/30 dark:bg-[linear-gradient(180deg,#102033_0%,#0b1725_68%,#09111a_100%)] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_50px_rgba(7,17,28,0.34)]">
+        <section className="flex flex-col gap-4 rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,248,241,0.94),rgba(242,235,223,0.88))] px-5 py-6 text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_20px_50px_rgba(96,74,40,0.14)] dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.96),rgba(8,16,28,0.94)_48%,rgba(7,15,24,0.98)_100%)] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_28px_70px_rgba(2,6,23,0.42)]">
             <div className="space-y-3">
               <div className="font-display inline-flex w-fit items-center gap-2 rounded-full border border-amber-400/50 bg-amber-100/60 px-3 py-1 text-[10px] uppercase tracking-[0.38em] text-amber-800 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -261,7 +275,7 @@ export default function AtlasExplorer({
                       setError(null)
                     })
                   }}
-                  className="font-body inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-stone-200/10 dark:bg-stone-100/5 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-stone-100/10"
+                className="font-body inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-slate-700/80 dark:bg-slate-950/80 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-slate-900/90"
                 >
                   <ArrowRightLeft className="h-4 w-4" />
                   Swap
@@ -273,7 +287,7 @@ export default function AtlasExplorer({
                     setRoute(null)
                     setError(null)
                   }}
-                  className="font-body inline-flex items-center justify-center rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-stone-200/10 dark:bg-stone-100/5 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-stone-100/10"
+                className="font-body inline-flex items-center justify-center rounded-2xl border border-stone-300/70 bg-white/80 px-4 py-2.5 text-sm font-medium text-stone-800 transition hover:border-amber-400 hover:bg-amber-50/70 dark:border-slate-700/80 dark:bg-slate-950/80 dark:text-stone-100 dark:hover:border-amber-300/40 dark:hover:bg-slate-900/90"
                 >
                   Reset
                 </button>
@@ -308,7 +322,7 @@ export default function AtlasExplorer({
               <MetricCard label="Gate links" value={gateLinks.length} />
             </div>
 
-            <div className="rounded-[1.5rem] border border-stone-300/70 bg-white/60 p-4 dark:border-stone-200/10 dark:bg-black/12">
+          <div className="rounded-[1.5rem] border border-stone-300/70 bg-white/60 p-4 dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.96),rgba(8,16,28,0.92))]">
               <div className="font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-amber-100/55">
                 Command state
               </div>
@@ -350,15 +364,26 @@ export default function AtlasExplorer({
             </div>
 
             {error ? (
-              <div className="rounded-[1.4rem] border border-red-300/60 bg-red-50/85 px-4 py-3 text-sm text-red-700 dark:border-red-400/30 dark:bg-red-500/12 dark:text-red-100">
-                {error}
+              <div className="rounded-[1.4rem] border border-red-300/60 bg-[linear-gradient(135deg,rgba(254,242,242,0.96),rgba(254,226,226,0.9))] px-4 py-3 text-sm text-red-800 shadow-[0_14px_32px_rgba(239,68,68,0.08)] dark:border-red-900/70 dark:bg-[linear-gradient(135deg,rgba(40,10,16,0.96),rgba(26,8,12,0.92))] dark:text-red-200">
+                <div className="font-display text-[10px] uppercase tracking-[0.3em] text-red-700 dark:text-red-300">
+                  Route status
+                </div>
+                <div className="font-body mt-2 leading-6">
+                  {error}
+                </div>
               </div>
             ) : null}
           </section>
 
-          <section className="min-w-0 rounded-[2rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,252,245,0.88),rgba(240,232,221,0.74))] p-3 shadow-[0_18px_50px_rgba(72,56,32,0.10)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/55">
+        <section
+          className={`min-w-0 rounded-[2rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,252,245,0.88),rgba(240,232,221,0.74))] p-3 shadow-[0_18px_50px_rgba(72,56,32,0.10)] backdrop-blur transition-all duration-500 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.95),rgba(6,14,26,0.94))] ${
+            routeFeedbackActive
+              ? 'ring-2 ring-cyan-300/60 shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_24px_60px_rgba(34,211,238,0.16)] dark:ring-cyan-300/40 dark:shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_28px_72px_rgba(8,145,178,0.22)]'
+              : ''
+          }`}
+        >
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="rounded-[1.7rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,245,238,0.66))] p-4 dark:border-slate-800 dark:bg-slate-950/55">
+              <div className="rounded-[1.7rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,245,238,0.66))] p-4 dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(8,16,28,0.92),rgba(10,20,36,0.88))]">
                 <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
@@ -371,7 +396,7 @@ export default function AtlasExplorer({
                       The map remains central while controls and telemetry stay docked at the edges.
                     </p>
                   </div>
-                  <div className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/70 bg-white/80 px-3 py-2 text-[10px] uppercase tracking-[0.34em] text-stone-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                  <div className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/70 bg-white/80 px-3 py-2 text-[10px] uppercase tracking-[0.34em] text-stone-600 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300">
                     <Orbit className="h-3.5 w-3.5" />
                     Flight camera active
                   </div>
@@ -381,7 +406,7 @@ export default function AtlasExplorer({
                   <button
                     type="button"
                     onClick={() => setShowGateLinks((value) => !value)}
-                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300"
+                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
                   >
                     <GitBranch className="h-3.5 w-3.5" />
                     {showGateLinks ? 'Hide links' : 'Show links'}
@@ -390,7 +415,7 @@ export default function AtlasExplorer({
                     type="button"
                     onClick={() => setRouteOnly((value) => !value)}
                     disabled={route == null}
-                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300"
+                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     {routeOnly ? 'Full map' : 'Route only'}
@@ -398,7 +423,7 @@ export default function AtlasExplorer({
                   <button
                     type="button"
                     onClick={() => setResetSignal((value) => value + 1)}
-                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300"
+                    className="font-display inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
                   >
                     <Crosshair className="h-3.5 w-3.5" />
                     Reset view
@@ -416,7 +441,7 @@ export default function AtlasExplorer({
                 </div>
 
                 {route == null ? (
-                  <div className="font-display mb-4 rounded-[1.1rem] border border-dashed border-stone-300/80 bg-white/60 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-400">
+                  <div className="font-display mb-4 rounded-[1.1rem] border border-dashed border-stone-300/80 bg-white/60 px-3 py-2 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgba(3,8,16,0.96),rgba(8,16,28,0.92))] dark:text-slate-400">
                     Route-only focus unlocks after the first route is calculated.
                   </div>
                 ) : null}
@@ -437,12 +462,29 @@ export default function AtlasExplorer({
                     resetSignal={resetSignal}
                     isDarkMode={isDarkMode}
                     onSelectSystemId={setFocusedSystemId}
-                    onHoverSystem={setHoveredSystem}
+                    onHoverSystem={(system, anchor) => {
+                      setHoveredSystem(system)
+                      setHoveredAnchor(anchor)
+                    }}
                   />
-                  {mapTooltipSystem ? (
-                    <div className="pointer-events-none absolute right-4 top-4 z-10 max-w-[18rem] rounded-[1.15rem] border border-stone-300/80 bg-white/88 px-4 py-3 text-sm shadow-[0_14px_36px_rgba(72,56,32,0.16)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/82 dark:shadow-[0_14px_36px_rgba(2,6,23,0.36)]">
+                  {mapTooltipSystem && mapTooltipAnchor ? (
+                    <div
+                      className="pointer-events-none absolute z-10 max-w-[18rem] rounded-[1.15rem] border border-stone-300/80 bg-white/88 px-4 py-3 text-sm shadow-[0_14px_36px_rgba(72,56,32,0.16)] backdrop-blur transition-[left,top,transform] duration-75 dark:border-slate-700/80 dark:bg-[linear-gradient(180deg,rgba(2,8,16,0.98),rgba(7,15,27,0.95))] dark:shadow-[0_18px_44px_rgba(2,6,23,0.44)]"
+                      style={{
+                        left: `${mapTooltipAnchor.x}px`,
+                        top: `${mapTooltipAnchor.y}px`,
+                        transform:
+                          mapTooltipAnchor.x > mapTooltipAnchor.width * 0.62
+                            ? mapTooltipAnchor.y > mapTooltipAnchor.height * 0.72
+                              ? 'translate(calc(-100% - 16px), calc(-100% - 16px))'
+                              : 'translate(calc(-100% - 16px), -50%)'
+                            : mapTooltipAnchor.y > mapTooltipAnchor.height * 0.72
+                              ? 'translate(16px, calc(-100% - 16px))'
+                              : 'translate(16px, -50%)',
+                      }}
+                    >
                       <div className="font-display text-[10px] uppercase tracking-[0.32em] text-stone-500 dark:text-slate-400">
-                        {hoveredSystem ? 'Hovered node' : 'Focused node'}
+                        Hovered node
                       </div>
                       <div className="font-display mt-2 text-base font-semibold tracking-[-0.03em] text-stone-950 dark:text-white">
                         {mapTooltipSystem.name}
@@ -453,13 +495,13 @@ export default function AtlasExplorer({
                         </span>
                       </div>
                       <div className="mt-3 grid gap-2">
-                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data text-stone-700 dark:border-slate-800 dark:bg-slate-900/85 dark:text-slate-200">
                           X {formatCoordinate(mapTooltipSystem.location.x)}k
                         </div>
-                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data text-stone-700 dark:border-slate-800 dark:bg-slate-900/85 dark:text-slate-200">
                           Y {formatCoordinate(mapTooltipSystem.location.y)}k
                         </div>
-                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data dark:border-slate-800 dark:bg-slate-950/55">
+                        <div className="rounded-xl border border-stone-300/70 bg-stone-50/85 px-3 py-2 font-data text-stone-700 dark:border-slate-800 dark:bg-slate-900/85 dark:text-slate-200">
                           Z {formatCoordinate(mapTooltipSystem.location.z)}k
                         </div>
                       </div>
@@ -469,7 +511,7 @@ export default function AtlasExplorer({
               </div>
 
               <aside className="grid gap-3">
-                <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/72 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+                <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/72 p-4 dark:border-slate-700/80 dark:bg-[rgba(8,16,28,0.9)]">
                   <div className="font-display text-[10px] uppercase tracking-[0.32em] text-stone-500 dark:text-slate-400">
                     Live focus
                   </div>
@@ -483,7 +525,7 @@ export default function AtlasExplorer({
                   </div>
                 </article>
 
-                <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/72 p-4 dark:border-slate-800 dark:bg-slate-950/55">
+                <article className="rounded-[1.45rem] border border-stone-300/70 bg-white/72 p-4 dark:border-slate-700/80 dark:bg-[rgba(8,16,28,0.9)]">
                   <div className="font-display text-[10px] uppercase tracking-[0.32em] text-stone-500 dark:text-slate-400">
                     Route telemetry
                   </div>
@@ -520,8 +562,14 @@ export default function AtlasExplorer({
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
-          <section className="rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,249,244,0.88),rgba(243,237,228,0.76))] p-4 shadow-[0_18px_50px_rgba(72,56,32,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
-            <div className="flex items-start justify-between gap-3 rounded-[1.4rem] border border-stone-300/70 bg-white/72 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/55">
+          <section
+            className={`rounded-[1.9rem] border border-stone-300/70 bg-[linear-gradient(180deg,rgba(252,249,244,0.88),rgba(243,237,228,0.76))] p-4 shadow-[0_18px_50px_rgba(72,56,32,0.08)] backdrop-blur transition-all duration-500 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.95),rgba(7,14,25,0.92))] ${
+              routeFeedbackActive
+                ? 'ring-2 ring-sky-300/55 shadow-[0_0_0_1px_rgba(56,189,248,0.22),0_24px_60px_rgba(56,189,248,0.14)] dark:ring-sky-300/35 dark:shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_28px_72px_rgba(14,165,233,0.18)]'
+                : ''
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3 rounded-[1.4rem] border border-stone-300/70 bg-white/72 px-4 py-4 dark:border-slate-700/80 dark:bg-[rgba(8,16,28,0.9)]">
               <div>
                 <div className="font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400">
                   Route stack
@@ -531,7 +579,7 @@ export default function AtlasExplorer({
                 </div>
               </div>
               {route ? (
-                <div className="font-data rounded-full border border-stone-300/80 bg-white/70 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:text-slate-300">
+                <div className="font-data rounded-full border border-stone-300/80 bg-white/70 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:bg-slate-950/82 dark:text-slate-300">
                   Explored {route.explored}
                 </div>
               ) : null}
@@ -543,7 +591,7 @@ export default function AtlasExplorer({
                   <button
                     type="button"
                     onClick={() => void handleCopyRoute()}
-                    className="font-display inline-flex items-center gap-2 rounded-[1rem] border border-stone-300/80 bg-white/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.24em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/55 dark:text-slate-300"
+                    className="font-display inline-flex items-center gap-2 rounded-[1rem] border border-stone-300/80 bg-white/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.24em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/82 dark:text-slate-300"
                   >
                     <Copy className="h-3.5 w-3.5" />
                     Copy route
@@ -553,7 +601,7 @@ export default function AtlasExplorer({
                     onClick={() =>
                       setFocusedSystemId(route.path[route.path.length - 1]?.id ?? null)
                     }
-                    className="font-display inline-flex items-center gap-2 rounded-[1rem] border border-stone-300/80 bg-white/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.24em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/55 dark:text-slate-300"
+                    className="font-display inline-flex items-center gap-2 rounded-[1rem] border border-stone-300/80 bg-white/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.24em] text-stone-600 transition hover:border-amber-400 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-950/82 dark:text-slate-300"
                   >
                     <LocateFixed className="h-3.5 w-3.5" />
                     Focus end
@@ -566,7 +614,7 @@ export default function AtlasExplorer({
                       key={system.id}
                       type="button"
                       onClick={() => setFocusedSystemId(system.id)}
-                      className="block rounded-[1.2rem] border border-stone-300/70 bg-white/90 p-3 text-left transition hover:border-amber-300 hover:bg-amber-50/40 dark:border-slate-800 dark:bg-slate-950/55 dark:hover:border-sky-700 dark:hover:bg-slate-900"
+                      className="block rounded-[1.2rem] border border-stone-300/70 bg-white/90 p-3 text-left transition hover:border-amber-300 hover:bg-amber-50/40 dark:border-slate-700/80 dark:bg-slate-950/82 dark:hover:border-sky-700 dark:hover:bg-slate-900"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -579,7 +627,7 @@ export default function AtlasExplorer({
                             </span>
                           </div>
                         </div>
-                        <div className="font-data rounded-full border border-stone-300/80 bg-stone-50/80 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:text-slate-300">
+                        <div className="font-data rounded-full border border-stone-300/80 bg-stone-50/80 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-stone-500 dark:border-slate-700 dark:bg-slate-900/82 dark:text-slate-300">
                           {index + 1}
                         </div>
                       </div>
@@ -588,7 +636,7 @@ export default function AtlasExplorer({
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-[1.35rem] border border-dashed border-stone-300/70 bg-white/70 px-4 py-8 text-center dark:border-slate-700 dark:bg-slate-950/35">
+              <div className="mt-4 rounded-[1.35rem] border border-dashed border-stone-300/70 bg-white/70 px-4 py-8 text-center dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgba(3,8,16,0.97),rgba(8,16,28,0.94))]">
                 <div className="font-display text-sm text-stone-900 dark:text-stone-100">
                   Route standby
                 </div>

@@ -12,6 +12,7 @@ export default function VerifyPodActions({ sharePath, copyText }: Props) {
   const [copied, setCopied] = useState(false)
   const [shared, setShared] = useState(false)
   const [printed, setPrinted] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
 
   const shareUrl =
     typeof window === 'undefined'
@@ -25,18 +26,37 @@ export default function VerifyPodActions({ sharePath, copyText }: Props) {
   }
 
   const share = async () => {
-    if (navigator.share) {
-      await navigator.share({
-        title: 'Verified EVE Frontier POD card',
-        text: 'Check this verified World API POD card.',
-        url: shareUrl,
-      })
-    } else {
-      await navigator.clipboard.writeText(shareUrl)
+    if (isSharing) {
+      return
     }
 
-    setShared(true)
-    setTimeout(() => setShared(false), 1800)
+    setIsSharing(true)
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Verified EVE Frontier POD card',
+          text: 'Check this verified World API POD card.',
+          url: shareUrl,
+        })
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+      }
+
+      setShared(true)
+      setTimeout(() => setShared(false), 1800)
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        ['AbortError', 'InvalidStateError'].includes(error.name)
+      ) {
+        return
+      }
+
+      throw error
+    } finally {
+      setIsSharing(false)
+    }
   }
 
   const print = () => {
@@ -58,10 +78,11 @@ export default function VerifyPodActions({ sharePath, copyText }: Props) {
       <button
         type="button"
         onClick={() => void share()}
+        disabled={isSharing}
         className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200"
       >
         {shared ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-        {shared ? 'Shared' : 'Share card'}
+        {shared ? 'Shared' : isSharing ? 'Sharing...' : 'Share card'}
       </button>
       <button
         type="button"

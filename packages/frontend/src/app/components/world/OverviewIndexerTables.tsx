@@ -40,9 +40,11 @@ type TransactionBlockItem = {
 type MoveCallItem = {
   id: string
   txDigest: string
+  callIndex: number | null
   packageId: string | null
   moduleName: string | null
   functionName: string | null
+  rawCall: unknown
   senderAddress: string | null
   status: string | null
   transactionTime: string | null
@@ -63,6 +65,7 @@ type Column<TItem> = {
   mobileLabel?: string
   render: (item: TItem) => ReactNode
   copyValue?: (item: TItem) => string | null
+  allowWrap?: boolean
 }
 
 type ListingCardProps<TItem> = {
@@ -130,6 +133,113 @@ async function parseJsonResponse<TPayload>(response: Response): Promise<TPayload
   }
 
   return payload
+}
+
+type JsonToken = {
+  value: string
+  tone: string
+}
+
+function tokenizeJsonLine(line: string): JsonToken[] {
+  const tokens: JsonToken[] = []
+  const pattern =
+    /("(?:\\.|[^"\\])*")(?=\s*:)|"(?:\\.|[^"\\])*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[[\]{},:]/g
+
+  let lastIndex = 0
+
+  for (const match of line.matchAll(pattern)) {
+    const value = match[0]
+    const index = match.index ?? 0
+
+    if (index > lastIndex) {
+      tokens.push({
+        value: line.slice(lastIndex, index),
+        tone: 'text-slate-500 dark:text-slate-400',
+      })
+    }
+
+    let tone = 'text-slate-300'
+
+    if (/^"/.test(value) && /^\s*:/.test(line.slice(index + value.length))) {
+      tone = 'text-sky-300'
+    } else if (/^"/.test(value)) {
+      tone = 'text-emerald-300'
+    } else if (/^(true|false)$/.test(value)) {
+      tone = 'text-amber-300'
+    } else if (value === 'null') {
+      tone = 'text-fuchsia-300'
+    } else if (/^-?\d/.test(value)) {
+      tone = 'text-cyan-300'
+    } else {
+      tone = 'text-slate-500 dark:text-slate-400'
+    }
+
+    tokens.push({ value, tone })
+    lastIndex = index + value.length
+  }
+
+  if (lastIndex < line.length) {
+    tokens.push({
+      value: line.slice(lastIndex),
+      tone: 'text-slate-500 dark:text-slate-400',
+    })
+  }
+
+  return tokens
+}
+
+function formatJsonValue(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2) ?? 'null'
+  } catch {
+    return '"[unserializable]"'
+  }
+}
+
+function JsonPreview({ value }: { value: unknown }) {
+  const formatted = formatJsonValue(value)
+  const lines = formatted.split('\n')
+
+  return (
+    <pre className="max-h-[min(28rem,60vh)] overflow-auto rounded-[1rem] border border-slate-800 bg-slate-950/95 p-3 text-xs leading-6 shadow-[0_22px_48px_rgba(2,6,23,0.42)]">
+      <code className="block min-w-max whitespace-pre">
+        {lines.map((line, lineIndex) => (
+          <div key={`json-line-${lineIndex}`} className="whitespace-pre">
+            {tokenizeJsonLine(line).map((token, tokenIndex) => (
+              <span
+                key={`json-line-${lineIndex}-token-${tokenIndex}`}
+                className={`${token.tone} whitespace-pre`}
+              >
+                {token.value}
+              </span>
+            ))}
+          </div>
+        ))}
+      </code>
+    </pre>
+  )
+}
+
+function RawCallPreview({ item }: { item: MoveCallItem }) {
+  return (
+    <div className="group/raw relative inline-flex">
+      <span className="inline-flex cursor-default items-center rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:border-sky-900/80 dark:bg-sky-950/35 dark:text-sky-200">
+        Inspect
+      </span>
+
+      <div className="pointer-events-none invisible absolute left-0 top-full z-30 mt-3 w-[min(32rem,80vw)] -translate-y-1 rounded-[1.2rem] border border-slate-700/90 bg-[linear-gradient(180deg,rgba(2,6,23,0.98),rgba(15,23,42,0.96))] p-4 opacity-0 shadow-[0_28px_80px_rgba(2,6,23,0.48)] transition-all duration-150 group-hover/raw:pointer-events-auto group-hover/raw:visible group-hover/raw:translate-y-0 group-hover/raw:opacity-100">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-300">
+            call #{item.callIndex ?? '--'}
+          </span>
+          <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-300">
+            {item.moduleName ?? 'unknown'}::{item.functionName ?? 'unknown'}
+          </span>
+        </div>
+        <JsonPreview value={item.rawCall} />
+      </div>
+    </div>
+  )
 }
 
 function buildPageWindow(currentPage: number, totalPages: number) {
@@ -241,7 +351,11 @@ function MobileRow<TItem>({ item, columns }: { item: TItem; columns: Column<TIte
             </div>
             <div className="min-w-0">
               <div className="group flex items-start gap-2">
-                <span className="min-w-0 break-all text-sm text-slate-800 dark:text-slate-100">
+                <span
+                  className={`min-w-0 text-sm text-slate-800 dark:text-slate-100 ${
+                    column.allowWrap ? 'break-words whitespace-normal' : 'break-all'
+                  }`}
+                >
                   {column.render(item)}
                 </span>
                 {column.copyValue?.(item) ? (
@@ -524,7 +638,13 @@ function ListingCard<TItem>({
                         className="border-b border-slate-200/70 px-4 py-4 align-top text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
                       >
                         <div className="group flex items-start gap-2">
-                          <span className="font-body block whitespace-nowrap">{column.render(item)}</span>
+                          <span
+                            className={`font-body block ${
+                              column.allowWrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                            }`}
+                          >
+                            {column.render(item)}
+                          </span>
                           {column.copyValue?.(item) ? (
                             <button
                               type="button"
@@ -758,6 +878,13 @@ export default function OverviewIndexerTables() {
                 ),
                 copyValue: (item) =>
                   `${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`,
+              },
+              {
+                key: 'rawCall',
+                label: 'Raw Call',
+                mobileLabel: 'Raw',
+                allowWrap: true,
+                render: (item) => <RawCallPreview item={item} />,
               },
               {
                 key: 'package',

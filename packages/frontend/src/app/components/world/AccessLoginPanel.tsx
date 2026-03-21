@@ -194,7 +194,7 @@ export default function AccessLoginPanel() {
         ) : (
           <Link
             href="/access"
-            className="inline-flex h-12 items-center gap-2 rounded-full border border-sky-300 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(59,130,246,0.24))] px-6 text-sm font-semibold text-sky-950 shadow-[0_18px_40px_rgba(14,165,233,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(14,165,233,0.24)] dark:border-sky-700 dark:text-sky-50"
+            className="inline-flex h-12 items-center gap-2 rounded-full border border-sky-300/90 bg-[linear-gradient(135deg,rgba(224,242,254,0.96),rgba(186,230,253,0.92))] px-6 text-sm font-semibold text-sky-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_18px_40px_rgba(14,165,233,0.18)] transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-[0_22px_44px_rgba(14,165,233,0.24)] dark:border-sky-700/80 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.72),rgba(30,64,175,0.48))] dark:text-sky-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_44px_rgba(14,165,233,0.16)] dark:hover:border-sky-500 dark:hover:bg-[linear-gradient(135deg,rgba(8,47,73,0.84),rgba(30,64,175,0.6))]"
           >
             <ShieldCheck className="h-4 w-4" />
             Open API Access
@@ -203,9 +203,14 @@ export default function AccessLoginPanel() {
       </div>
 
       {user ? (
-        <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.96),rgba(209,250,229,0.92))] px-4 py-4 text-sm text-emerald-900 shadow-[0_14px_32px_rgba(16,185,129,0.12)] dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200">
-          Session ready for {user.walletName ?? truncateValue(user.walletAddress)}. API key
-          management is available now.
+        <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] px-4 py-4 text-sm text-emerald-900 shadow-[0_14px_32px_rgba(16,185,129,0.12)] dark:border-emerald-900/70 dark:bg-[linear-gradient(135deg,rgba(6,40,28,0.9),rgba(6,78,59,0.34))] dark:text-emerald-200">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
+            Session active
+          </div>
+          <div className="mt-1 font-medium">
+            Session ready for {user.walletName ?? truncateValue(user.walletAddress)}. API key
+            management is available now.
+          </div>
         </div>
       ) : null}
 

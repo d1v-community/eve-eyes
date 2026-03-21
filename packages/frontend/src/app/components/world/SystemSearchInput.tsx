@@ -98,6 +98,8 @@ export default function SystemSearchInput({
   }, [deferredQuery, isDirty, isFocused, selected])
 
   const isOpen = isFocused && results.length > 0
+  const showEmptyState =
+    isFocused && isDirty && !isLoading && normalize(deferredQuery).length >= 2 && results.length === 0
 
   function handleSelect(system: SearchSystem) {
     onSelect(system)
@@ -121,7 +123,7 @@ export default function SystemSearchInput({
         className={
           tone === 'dark'
             ? 'font-display text-[10px] uppercase tracking-[0.34em] text-stone-300/70'
-            : 'font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-400'
+            : 'font-display text-[10px] uppercase tracking-[0.34em] text-stone-500 dark:text-slate-300/70'
         }
       >
         {label}
@@ -131,7 +133,7 @@ export default function SystemSearchInput({
           className={
             tone === 'dark'
               ? 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-200/70'
-              : 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-slate-400'
+              : 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-slate-300/70'
           }
         />
         <input
@@ -155,8 +157,8 @@ export default function SystemSearchInput({
           placeholder={placeholder}
           className={
             tone === 'dark'
-              ? 'font-body w-full rounded-[1.2rem] border border-stone-200/12 bg-white/8 px-10 py-3 text-sm text-stone-50 outline-none transition placeholder:text-stone-300/35 focus:border-amber-300/60 focus:bg-white/10'
-              : 'font-body w-full rounded-[1.2rem] border border-stone-300/70 bg-white/86 px-10 py-3 text-sm text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-amber-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/60 dark:text-white'
+              ? 'font-body w-full rounded-[1.2rem] border border-stone-200/12 bg-white/8 px-10 py-3 text-sm text-stone-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-stone-300/35 focus:border-amber-300/60 focus:bg-white/10 focus:ring-4 focus:ring-amber-300/10'
+              : 'font-body w-full rounded-[1.2rem] border border-stone-300/70 bg-white/90 px-10 py-3 text-sm text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_20px_rgba(148,163,184,0.08)] outline-none transition placeholder:text-stone-400 focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 dark:border-slate-700/80 dark:bg-slate-950/75 dark:text-slate-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:placeholder:text-slate-400/70 dark:focus:border-amber-300/50 dark:focus:bg-slate-950 dark:focus:ring-amber-300/10'
           }
         />
         {isLoading ? (
@@ -164,18 +166,18 @@ export default function SystemSearchInput({
             className={
               tone === 'dark'
                 ? 'absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-amber-200/70'
-                : 'absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-stone-400 dark:text-slate-400'
+                : 'absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-stone-400 dark:text-slate-300/70'
             }
           />
         ) : null}
       </div>
-      {isOpen ? (
+      {isOpen || showEmptyState ? (
         <div
           id={listId}
           className={
             tone === 'dark'
               ? 'absolute top-full z-20 mt-2 max-h-64 w-full overflow-auto rounded-[1.3rem] border border-amber-200/15 bg-[#0d1824]/96 p-2 shadow-[0_20px_50px_rgba(7,17,28,0.35)]'
-              : 'absolute top-full z-20 mt-2 max-h-64 w-full overflow-auto rounded-[1.3rem] border border-stone-300/80 bg-white/96 p-2 shadow-[0_20px_50px_rgba(72,56,32,0.18)] dark:border-slate-800 dark:bg-slate-950/95'
+              : 'absolute top-full z-20 mt-2 max-h-64 w-full overflow-auto rounded-[1.3rem] border border-stone-300/80 bg-white/96 p-2 shadow-[0_20px_50px_rgba(72,56,32,0.18)] dark:border-slate-700/80 dark:bg-slate-950/95 dark:shadow-[0_20px_50px_rgba(2,6,23,0.42)]'
           }
         >
           {results.map((system) => (
@@ -187,7 +189,7 @@ export default function SystemSearchInput({
               className={
                 tone === 'dark'
                   ? 'flex w-full flex-col rounded-xl px-3 py-2 text-left transition hover:bg-white/6'
-                  : 'flex w-full flex-col rounded-xl px-3 py-2 text-left transition hover:bg-stone-100 dark:hover:bg-slate-900'
+                  : 'flex w-full flex-col rounded-xl px-3 py-2 text-left transition hover:bg-stone-100 dark:hover:bg-slate-900/80'
               }
             >
               <span
@@ -211,6 +213,17 @@ export default function SystemSearchInput({
               </span>
             </button>
           ))}
+          {showEmptyState ? (
+            <div
+              className={
+                tone === 'dark'
+                  ? 'rounded-xl px-3 py-3 text-sm text-stone-300/70'
+                  : 'rounded-xl px-3 py-3 text-sm text-stone-500 dark:text-slate-400'
+              }
+            >
+              No matching solar systems.
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

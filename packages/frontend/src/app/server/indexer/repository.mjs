@@ -28,16 +28,43 @@ export function listIndexerModules() {
   return INDEXER_MODULES
 }
 
+function buildEmptyModuleCallCounts() {
+  return INDEXER_MODULES.map((moduleName) => ({
+    moduleName,
+    callCount: 0,
+    latestTransactionTime: null,
+  }))
+}
+
+function isMissingRelationError(error) {
+  return (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === '42P01'
+  )
+}
+
 export async function getModuleCallCounts(sql) {
-  const rows = await sql`
-    SELECT
-      module_name,
-      COUNT(*)::int AS call_count,
-      MAX(transaction_time) AS latest_transaction_time
-    FROM suiscan_move_calls
-    WHERE package_id = ${PACKAGE_ID}
-    GROUP BY module_name
-  `
+  let rows
+
+  try {
+    rows = await sql`
+      SELECT
+        module_name,
+        COUNT(*)::int AS call_count,
+        MAX(transaction_time) AS latest_transaction_time
+      FROM suiscan_move_calls
+      WHERE package_id = ${PACKAGE_ID}
+      GROUP BY module_name
+    `
+  } catch (error) {
+    if (isMissingRelationError(error)) {
+      return buildEmptyModuleCallCounts()
+    }
+
+    throw error
+  }
 
   const rowByModuleName = new Map(
     rows.map((row) => [

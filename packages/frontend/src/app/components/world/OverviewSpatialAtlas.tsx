@@ -1,7 +1,7 @@
 'use client'
 
 import { Html, OrbitControls, PerspectiveCamera } from '@react-three/drei'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { normalizeSpatialSystems } from '../../world/spatial-layout'
@@ -16,6 +16,13 @@ type ControlsHandle = {
   update: () => void
 }
 
+export type AtlasTooltipAnchor = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const ATLAS_SCENE_SCALE = 800
 const ATLAS_CAMERA_HOME_Z = 500
 const ATLAS_FOCUS_PULLBACK = 200
@@ -23,7 +30,7 @@ const ATLAS_FOCUS_PULLBACK = 200
 type OverviewSpatialAtlasProps = {
   systems: MapSystem[]
   gateLinks: Array<Pick<MapLink, 'fromId' | 'toId'>>
-  onHoverSystem: (system: MapSystem | null) => void
+  onHoverSystem: (system: MapSystem | null, anchor: AtlasTooltipAnchor | null) => void
   highlightedPathIds?: number[]
   selectedSystemId?: number | null
   originSystemId?: number | null
@@ -321,10 +328,33 @@ function SystemsLayer({
   destinationId: number | null
   highlightedPathIds: number[]
   isDarkMode: boolean
-  onHoverSystem: (system: MapSystem | null) => void
+  onHoverSystem: (system: MapSystem | null, anchor: AtlasTooltipAnchor | null) => void
   onSelectSystem: (system: PositionedSystem) => void
 }) {
   const highlightedSet = useMemo(() => new Set(highlightedPathIds), [highlightedPathIds])
+
+  function buildPointerAnchor(event: ThreeEvent<PointerEvent>): AtlasTooltipAnchor {
+    const pointerTarget = event.nativeEvent.target
+    const canvas =
+      pointerTarget instanceof Element ? pointerTarget.closest('canvas') : null
+    const rect = canvas?.getBoundingClientRect() ?? null
+
+    if (rect == null) {
+      return {
+        x: event.clientX,
+        y: event.clientY,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }
+    }
+
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    }
+  }
 
   return (
     <>
@@ -358,8 +388,9 @@ function SystemsLayer({
         return (
           <group key={system.id} position={system.position}>
             <mesh
-              onPointerOver={() => onHoverSystem(system)}
-              onPointerOut={() => onHoverSystem(null)}
+              onPointerOver={(event) => onHoverSystem(system, buildPointerAnchor(event))}
+              onPointerMove={(event) => onHoverSystem(system, buildPointerAnchor(event))}
+              onPointerOut={() => onHoverSystem(null, null)}
               onClick={() => onSelectSystem(system)}
             >
               <sphereGeometry args={[baseRadius, 18, 18]} />

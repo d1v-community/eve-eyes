@@ -3,16 +3,14 @@
 import * as Toggle from '@radix-ui/react-toggle'
 import { Badge } from '@radix-ui/themes'
 import { MoonIcon, SunIcon } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { useTheme } from '../providers/ThemeProvider'
 
 const ThemeSwitcher = () => {
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

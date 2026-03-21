@@ -1,8 +1,8 @@
 'use client'
 
 import { Network, Orbit, Radar, Sparkles, Telescope } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { useMemo, useState } from 'react'
+import { useTheme } from '../../providers/ThemeProvider'
 import { projectSpatialSystemsToViewport } from '../../world/spatial-layout'
 import type { MapConstellation, MapLink, MapSystem } from '../../world/types'
 import OverviewCorridorDeck from './OverviewCorridorDeck'
@@ -349,15 +349,15 @@ export default function OverviewMapLab({
   ])
 
   return (
-    <section className="overflow-hidden rounded-[2.1rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.14),_transparent_24%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.84))] md:p-6">
+    <section className="overflow-hidden rounded-[2.1rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.08),_transparent_24%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(7,14,28,0.94))] md:p-6">
       <div className="grid gap-5 xl:grid-cols-[1.22fr_0.78fr]">
-        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/45">
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.98),rgba(8,16,30,0.96))]">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-display inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
               <Telescope className="h-3.5 w-3.5" />
               Cartography lab
             </span>
-            <span className="font-body inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+            <span className="font-body inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-300">
               <Sparkles className="h-3.5 w-3.5" />
               Same universe, three lenses
             </span>
@@ -400,7 +400,7 @@ export default function OverviewMapLab({
             {activeSignals.map((signal) => (
               <article
                 key={signal.label}
-                className="rounded-[1.25rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50 dark:hover:border-sky-800"
+                className="rounded-[1.25rem] border border-slate-200/80 bg-white/82 px-4 py-4 transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.95),rgba(10,18,34,0.92))] dark:hover:border-sky-800"
               >
                 <div className="font-display text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                   {signal.label}
@@ -417,7 +417,7 @@ export default function OverviewMapLab({
         </div>
 
         <div className="grid gap-4">
-          <article className="rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(240,249,255,0.86))] p-5 transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_40px_rgba(56,189,248,0.1)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.74))] dark:hover:border-sky-800">
+          <article className="rounded-[1.8rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(240,249,255,0.86))] p-5 transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_40px_rgba(56,189,248,0.1)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.98),rgba(8,16,30,0.96))] dark:hover:border-sky-800">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="font-display text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -435,10 +435,10 @@ export default function OverviewMapLab({
             <div className="font-body mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
               {activeMode.stance}
             </div>
-            <div className="font-body mt-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 px-4 py-4 text-sm leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-950/55 dark:text-slate-200">
+              <div className="font-body mt-4 rounded-[1.2rem] border border-slate-200/80 bg-white/82 px-4 py-4 text-sm leading-7 text-slate-700 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.92)] dark:text-slate-200">
               {activeMode.summary}
             </div>
-            <div className="font-body mt-3 rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-900/55 dark:text-slate-300">
+            <div className="font-body mt-3 rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgba(3,8,16,0.96),rgba(8,16,28,0.92))] dark:text-slate-300">
               {activeMode.instruction}
             </div>
           </article>
@@ -456,7 +456,7 @@ export default function OverviewMapLab({
               }))}
               selectedSystemId={selectedSystemId}
               onSelectSystemId={setSelectedSystemId}
-              onHoverSystem={setHoveredSystem}
+              onHoverSystem={(system) => setHoveredSystem(system)}
               isDarkMode={isDarkMode}
             />
           ) : mode === 'network' ? (
@@ -491,9 +491,9 @@ export default function OverviewMapLab({
         </div>
 
         <div className="grid gap-4">
-          <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/60">
+          <article className="rounded-[1.75rem] border border-slate-200/70 bg-slate-50/80 p-5 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(4,10,18,0.98),rgba(8,16,30,0.95))]">
             {(mode === 'spatial' || mode === 'network') && (hoveredSystem ?? selectedSystem) ? (
-              <div className="font-body mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-sky-950/20 dark:text-slate-200">
+              <div className="font-body mb-4 rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-sky-900/70 dark:bg-[linear-gradient(180deg,rgba(7,20,34,0.96),rgba(10,24,40,0.92))] dark:text-slate-200">
                 <div className="font-display text-xs uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
                   {hoveredSystem ? 'Hovered system' : 'Selected system'}
                 </div>
@@ -508,7 +508,7 @@ export default function OverviewMapLab({
               </div>
             ) : null}
             {mode === 'corridor' && selectedCorridor ? (
-              <div className="font-body mb-4 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/20 dark:text-slate-200">
+              <div className="font-body mb-4 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-4 text-sm leading-6 text-slate-700 dark:border-fuchsia-900/70 dark:bg-[linear-gradient(180deg,rgba(28,10,34,0.92),rgba(18,10,28,0.9))] dark:text-slate-200">
                 <div className="font-display text-xs uppercase tracking-[0.24em] text-fuchsia-700 dark:text-fuchsia-300">
                   Active corridor
                 </div>
@@ -531,7 +531,7 @@ export default function OverviewMapLab({
                     value={networkQuery}
                     onChange={(event) => setNetworkQuery(event.target.value)}
                     placeholder="Type 2+ chars"
-                    className="font-body w-full rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950/60 dark:text-white"
+                    className="font-body w-full rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.92)] dark:text-white"
                   />
                   {filteredNetworkSystems.length > 0 ? (
                     <div className="mt-2 grid gap-2">
@@ -540,7 +540,7 @@ export default function OverviewMapLab({
                           key={system.id}
                           type="button"
                           onClick={() => setSelectedSystemId(system.id)}
-                          className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
+                          className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]"
                         >
                           <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
                             {system.name}
@@ -563,7 +563,7 @@ export default function OverviewMapLab({
                         key={system.id}
                         type="button"
                         onClick={() => setSelectedSystemId(system.id)}
-                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950/50"
+                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-sky-300 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]"
                       >
                         <div>
                           <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
@@ -597,7 +597,7 @@ export default function OverviewMapLab({
                         key={corridorKey}
                         type="button"
                         onClick={() => setSelectedCorridorKey(corridorKey)}
-                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-fuchsia-300 dark:border-slate-800 dark:bg-slate-950/50"
+                        className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-left text-sm transition hover:border-fuchsia-300 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]"
                       >
                         <div>
                           <div className="font-display font-medium tracking-[-0.02em] text-slate-900 dark:text-slate-100">
@@ -618,7 +618,7 @@ export default function OverviewMapLab({
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(5,11,21,0.96),rgba(8,16,30,0.92))]">
                 <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   System sample
                 </div>
@@ -626,7 +626,7 @@ export default function OverviewMapLab({
                   {positionedSystems.length}
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(5,11,21,0.96),rgba(8,16,30,0.92))]">
                 <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Visible links
                 </div>
@@ -634,7 +634,7 @@ export default function OverviewMapLab({
                   {gateEdges.length}
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+              <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(5,11,21,0.96),rgba(8,16,30,0.92))]">
                 <div className="font-display text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                   Anchor clusters
                 </div>

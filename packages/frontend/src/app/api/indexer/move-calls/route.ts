@@ -14,6 +14,15 @@ function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, init)
 }
 
+function isBadRequest(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message.includes('must be a positive integer') ||
+      error.message.includes('must be a non-negative integer') ||
+      error.message === 'walletAddress must be a valid Sui address')
+  )
+}
+
 export async function GET(request: Request) {
   try {
     const sql = getSqlClient()
@@ -48,12 +57,7 @@ export async function GET(request: Request) {
     let status = 500
 
     if (
-      error instanceof Error &&
-      [
-        'page must be a positive integer',
-        'pageSize must be a positive integer',
-        'walletAddress must be a valid Sui address',
-      ].includes(error.message)
+      isBadRequest(error)
     ) {
       status = 400
     } else if (

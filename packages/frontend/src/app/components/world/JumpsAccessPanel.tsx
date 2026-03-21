@@ -15,6 +15,7 @@ import {
   TimerReset,
 } from 'lucide-react'
 import { startTransition, useCallback, useEffect, useState } from 'react'
+import { notification } from '../../helpers/notification'
 
 type AuthUser = {
   id: string
@@ -37,6 +38,32 @@ type ApiKeyRecord = {
   lastUsedAt: string | null
   revokedAt: string | null
 }
+
+const AUTH_HEADERS = [
+  '`Authorization: Bearer <jwt>` for browser sessions and signed wallet logins.',
+  '`Authorization: ApiKey <api-key>` for machine-to-machine access.',
+  '`x-api-key: <api-key>` as an alternative API key header.',
+]
+
+const TRANSACTION_BLOCK_FIELDS = [
+  'network',
+  'senderAddress',
+  'status',
+  'digest',
+  'transactionKind',
+  'checkpoint',
+]
+
+const MOVE_CALL_FIELDS = [
+  'network',
+  'senderAddress',
+  'status',
+  'txDigest',
+  'packageId',
+  'moduleName',
+  'functionName',
+  'callIndex',
+]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -79,10 +106,12 @@ export default function JumpsAccessPanel() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
+  const [exitingKeyIds, setExitingKeyIds] = useState<string[]>([])
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authType, setAuthType] = useState<'anonymous' | 'jwt' | 'apiKey'>('anonymous')
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([])
-  const [apiKeyName, setApiKeyName] = useState('Indexer access')
+  const [apiKeyName, setApiKeyName] = useState('api-key-name')
   const [latestCreatedApiKey, setLatestCreatedApiKey] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -165,8 +194,12 @@ export default function JumpsAccessPanel() {
       setLatestCreatedApiKey(payload.apiKey)
       await loadApiKeys()
       setSuccessMessage('API key created. Copy it now; the full value is only shown once.')
+      notification.success('API key created. Copy it now.')
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to create API key')
+      const message =
+        error instanceof Error ? error.message : 'Failed to create API key'
+      setErrorMessage(message)
+      notification.error(error instanceof Error ? error : null, message)
     } finally {
       setIsSubmitting(false)
     }
@@ -174,8 +207,10 @@ export default function JumpsAccessPanel() {
 
   async function handleRevokeApiKey(apiKeyId: string) {
     setIsSubmitting(true)
+    setRevokingKeyId(apiKeyId)
     setErrorMessage(null)
     setSuccessMessage(null)
+    const toastId = notification.loading('Revoking API key...')
 
     try {
       const response = await fetch(`/api/auth/api-keys/${apiKeyId}`, {
@@ -183,12 +218,24 @@ export default function JumpsAccessPanel() {
       })
 
       await parseJsonResponse(response)
-      await loadApiKeys()
       setSuccessMessage('API key revoked.')
+      notification.success('API key revoked.', toastId)
+      setExitingKeyIds((current) =>
+        current.includes(apiKeyId) ? current : [...current, apiKeyId]
+      )
+      window.setTimeout(() => {
+        setApiKeys((current) => current.filter((item) => item.id !== apiKeyId))
+        setExitingKeyIds((current) => current.filter((id) => id !== apiKeyId))
+        void loadApiKeys()
+      }, 420)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to revoke API key')
+      const message =
+        error instanceof Error ? error.message : 'Failed to revoke API key'
+      setErrorMessage(message)
+      notification.error(error instanceof Error ? error : null, message, toastId)
     } finally {
       setIsSubmitting(false)
+      setRevokingKeyId(null)
     }
   }
 
@@ -201,8 +248,10 @@ export default function JumpsAccessPanel() {
       setIsCopying(true)
       await navigator.clipboard.writeText(latestCreatedApiKey)
       setSuccessMessage('API key copied.')
+      notification.success('API key copied.')
     } catch {
       setErrorMessage('Failed to copy API key.')
+      notification.error(null, 'Failed to copy API key.')
     } finally {
       window.setTimeout(() => setIsCopying(false), 1200)
     }
@@ -212,7 +261,7 @@ export default function JumpsAccessPanel() {
 
   return (
     <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.84fr_1.16fr]">
-      <article className="rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_30%),linear-gradient(180deg,rgba(2,6,23,0.92),rgba(15,23,42,0.86))]">
+      <article className="rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/80 px-3 py-1.5 text-xs uppercase tracking-[0.28em] text-sky-700 shadow-[0_10px_24px_rgba(14,165,233,0.08)] dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
             <LockKeyhole className="h-3.5 w-3.5" />
@@ -235,7 +284,7 @@ export default function JumpsAccessPanel() {
               })
             }}
             disabled={isRefreshing || isSubmitting}
-            className="!h-11 !rounded-full !border !border-slate-200/80 !bg-white/90 !px-4 !font-semibold !text-slate-700 !shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition hover:!translate-y-[-1px] hover:!bg-white dark:!border-slate-700 dark:!bg-slate-950/55 dark:!text-slate-100"
+            className="!h-11 !rounded-full !border !border-slate-200/80 !bg-white/90 !px-4 !font-semibold !text-slate-700 !shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition hover:!translate-y-[-1px] hover:!bg-white dark:!border-slate-700/80 dark:!bg-[rgba(8,16,28,0.92)] dark:!text-slate-100"
           >
             {isRefreshing ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -254,7 +303,7 @@ export default function JumpsAccessPanel() {
         </p>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.95),rgba(10,18,34,0.92))]">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Session
             </div>
@@ -268,7 +317,7 @@ export default function JumpsAccessPanel() {
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.95),rgba(10,18,34,0.92))]">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Wallet
             </div>
@@ -280,7 +329,7 @@ export default function JumpsAccessPanel() {
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.95),rgba(10,18,34,0.92))]">
             <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               Active API keys
             </div>
@@ -295,8 +344,8 @@ export default function JumpsAccessPanel() {
 
         {isBootstrapping ? (
           <div className="mt-5 grid gap-3">
-            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800 dark:bg-slate-950/45" />
-            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800 dark:bg-slate-950/45" />
+            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]" />
+            <div className="h-24 animate-pulse rounded-[1.5rem] border border-slate-200/70 bg-white/70 dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]" />
           </div>
         ) : null}
 
@@ -313,7 +362,7 @@ export default function JumpsAccessPanel() {
         ) : null}
 
         {user ? (
-          <div className="mt-5 rounded-[1.55rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/55">
+          <div className="mt-5 rounded-[1.55rem] border border-slate-200/70 bg-white/85 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.95),rgba(10,18,34,0.92))]">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               <ShieldCheck className="h-4 w-4" />
               Current User
@@ -325,33 +374,99 @@ export default function JumpsAccessPanel() {
               {user.walletAddress}
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]">
                 Created {formatDate(user.createdAt)}
               </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-3 text-sm dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]">
                 Last seen {formatDate(user.lastSeenAt)}
               </div>
             </div>
           </div>
         ) : null}
 
-        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.82),rgba(15,23,42,0.8))]">
+        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+            Auth headers
+          </div>
+          <div className="mt-3 grid gap-3">
+            {AUTH_HEADERS.map((line) => (
+              <div
+                key={line}
+                className="rounded-[1.1rem] border border-slate-200/80 bg-white/85 px-4 py-3 text-sm leading-6 text-slate-700 dark:border-slate-800 dark:bg-[rgba(8,16,28,0.9)] dark:text-slate-200"
+              >
+                {line}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+              Transaction Blocks
+            </div>
+            <div className="mt-2 break-all rounded-[1rem] border border-slate-200/80 bg-white/90 px-4 py-3 font-mono text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100">
+              GET /api/indexer/transaction-blocks
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Supports pagination plus exact-match field filters for indexed block records.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {TRANSACTION_BLOCK_FIELDS.map((field) => (
+                <span
+                  key={field}
+                  className="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                >
+                  {field}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+              Move Calls
+            </div>
+            <div className="mt-2 break-all rounded-[1rem] border border-slate-200/80 bg-white/90 px-4 py-3 font-mono text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100">
+              GET /api/indexer/move-calls
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Returns indexed move call rows, including raw call payloads for downstream inspection.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {MOVE_CALL_FIELDS.map((field) => (
+                <span
+                  key={field}
+                  className="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                >
+                  {field}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
             Examples
           </div>
           <pre className="mt-3 overflow-x-auto rounded-[1.2rem] border border-slate-200/80 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 dark:border-slate-800">
-{`curl '/api/indexer/transaction-blocks?page=1&pageSize=20'
+            {`curl '/api/indexer/transaction-blocks?page=1&pageSize=20&status=success&checkpoint=42'
 
-curl '/api/indexer/transaction-blocks?page=4&pageSize=20' \\
-  -H 'Authorization: Bearer <jwt>'
+curl '/api/indexer/transaction-blocks?page=4&pageSize=20&senderAddress=0xabc' \\
+  -H 'Authorization: ApiKey <api-key>'
 
-curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
+curl '/api/indexer/move-calls?page=4&pageSize=20&packageId=0x2&moduleName=world&functionName=jump&callIndex=0' \\
   -H 'x-api-key: <api-key>'`}
           </pre>
+          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Pages 1-3 are public. Page 4 and above require JWT or API key auth. Query params
+            are exact-match filters, so scripts can combine them directly.
+          </p>
         </div>
       </article>
 
-      <article className="rounded-[2rem] border border-slate-200/70 bg-white/92 p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-950/80">
+      <article className="rounded-[2rem] border border-slate-200/70 bg-white/92 p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.98),rgba(8,16,30,0.95))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
@@ -367,7 +482,7 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
           </div>
         </div>
 
-        <div className="mt-4 rounded-[1.8rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(2,6,23,0.88))]">
+        <div className="mt-4 rounded-[1.8rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.97),rgba(10,18,34,0.94))]">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -377,36 +492,35 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
                 Create a machine key
               </div>
             </div>
-            <div className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
-              5 TPS fixed window
-            </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <TextField.Root
-            value={apiKeyName}
-            onChange={(event) => setApiKeyName(event.target.value)}
-            placeholder="Indexer access"
-            disabled={!user || isSubmitting}
-            className="!h-12 !rounded-full [&_input]:!rounded-full [&_input]:!border-0 [&_input]:!bg-white [&_input]:!px-4 [&_input]:!text-[15px] [&_input]:!shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:[&_input]:!bg-slate-950/70"
-          />
-          <Button
-            onClick={handleCreateApiKey}
-            disabled={!user || isSubmitting}
-            className="!h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-5 !font-semibold !text-white !shadow-[0_18px_40px_rgba(14,165,233,0.26)] transition hover:!translate-y-[-1px] hover:!shadow-[0_22px_44px_rgba(14,165,233,0.32)] disabled:!translate-y-0 disabled:!opacity-60"
-          >
-            {isSubmitting ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
-              <KeyRound className="h-4 w-4" />
-            )}
-            {isSubmitting ? 'Creating' : 'Create Key'}
-          </Button>
+          <div className="grid gap-3">
+            <TextField.Root
+              value={apiKeyName}
+              onChange={(event) => setApiKeyName(event.target.value)}
+              placeholder="api-key-name"
+              disabled={!user || isSubmitting}
+              className="!h-12 !rounded-full [&_input]:!rounded-full [&_input]:!border-0 [&_input]:!bg-white [&_input]:!px-4 [&_input]:!text-[15px] [&_input]:!shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:[&_input]:!bg-[rgba(8,16,28,0.92)]"
+            />
+            <div className="flex justify-start">
+              <Button
+                onClick={handleCreateApiKey}
+                disabled={!user || isSubmitting}
+                className="!h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-5 !font-semibold !text-white !shadow-[0_18px_40px_rgba(14,165,233,0.26)] transition hover:!translate-y-[-1px] hover:!shadow-[0_22px_44px_rgba(14,165,233,0.32)] disabled:!translate-y-0 disabled:!opacity-60"
+              >
+                {isSubmitting ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                {isSubmitting ? 'Creating' : 'Create Key'}
+              </Button>
+            </div>
           </div>
         </div>
 
         {latestCreatedApiKey ? (
-          <div className="mt-4 rounded-[1.5rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] p-4 shadow-[0_16px_34px_rgba(16,185,129,0.08)] dark:border-emerald-900/70 dark:bg-emerald-950/25">
+          <div className="mt-4 rounded-[1.5rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(209,250,229,0.94))] p-4 shadow-[0_16px_34px_rgba(16,185,129,0.08)] dark:border-emerald-900/70 dark:bg-[linear-gradient(135deg,rgba(6,34,24,0.96),rgba(8,24,18,0.92))]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">
                 Copy now
@@ -415,7 +529,7 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
                 variant="soft"
                 onClick={handleCopyLatestApiKey}
                 disabled={isCopying}
-                className="!h-9 !rounded-full !border !border-emerald-300 !bg-white/80 !px-4 !font-semibold !text-emerald-800 dark:!border-emerald-900/70 dark:!bg-emerald-950/35 dark:!text-emerald-100"
+                className="!h-9 !rounded-full !border !border-emerald-300 !bg-white/80 !px-4 !font-semibold !text-emerald-800 dark:!border-emerald-900/70 dark:!bg-[rgba(7,30,22,0.92)] dark:!text-emerald-100"
               >
                 {isCopying ? (
                   <CopyCheck className="h-4 w-4" />
@@ -436,7 +550,10 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
             apiKeys.map((apiKey) => (
               <div
                 key={apiKey.id}
-                className="rounded-[1.55rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.92))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,0.86))]"
+                className={`overflow-hidden rounded-[1.55rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.92))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.06)] transition-all duration-400 dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(6,12,22,0.96),rgba(10,18,34,0.92))] ${exitingKeyIds.includes(apiKey.id)
+                  ? 'pointer-events-none translate-x-6 scale-[0.98] opacity-0'
+                  : 'translate-x-0 opacity-100'
+                  }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -449,7 +566,7 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="rounded-full border border-slate-200/80 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
+                    <div className="rounded-full border border-slate-200/80 bg-white/75 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-700/80 dark:bg-[rgba(8,16,28,0.92)] dark:text-slate-300">
                       {apiKey.rateLimitTps} TPS
                     </div>
                     <Button
@@ -459,17 +576,21 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
                       disabled={Boolean(apiKey.revokedAt) || isSubmitting}
                       className="!h-10 !rounded-full !border !border-rose-200 !bg-rose-50 !px-4 !font-semibold !text-rose-700 transition hover:!translate-y-[-1px] hover:!bg-rose-100 disabled:!opacity-45 dark:!border-rose-900/70 dark:!bg-rose-950/35 dark:!text-rose-100"
                     >
-                      <TimerReset className="h-4 w-4" />
-                      Revoke
+                      {revokingKeyId === apiKey.id ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <TimerReset className="h-4 w-4" />
+                      )}
+                      {revokingKeyId === apiKey.id ? 'Revoking' : 'Revoke'}
                     </Button>
                   </div>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
+                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-sm dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]">
                     Created {formatDate(apiKey.createdAt)}
                   </div>
-                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
+                  <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-3 text-sm dark:border-slate-800/90 dark:bg-[rgba(8,16,28,0.9)]">
                     Last used {formatDate(apiKey.lastUsedAt)}
                   </div>
                 </div>
@@ -482,7 +603,7 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&moduleName=world' \\
               </div>
             ))
           ) : (
-            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/60 px-4 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
+            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/60 px-4 py-5 text-sm leading-7 text-slate-600 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.96),rgba(8,16,28,0.92))] dark:text-slate-300">
               {user
                 ? 'No API keys yet. Create one to call page 4 and beyond from your own scripts.'
                 : 'Sign in first, then create an API key for server-to-server access.'}

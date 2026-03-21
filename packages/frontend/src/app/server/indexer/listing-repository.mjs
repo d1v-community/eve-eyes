@@ -9,6 +9,28 @@ function normalizeOptionalText(value) {
   return normalized.length > 0 ? normalized : null
 }
 
+function normalizeOptionalInteger(value, label, { allowZero = false } = {}) {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const normalized = String(value).trim()
+
+  if (!normalized) {
+    return null
+  }
+
+  const parsed = Number.parseInt(normalized, 10)
+
+  if (Number.isNaN(parsed) || (allowZero ? parsed < 0 : parsed <= 0)) {
+    throw new Error(
+      `${label} must be a ${allowZero ? 'non-negative' : 'positive'} integer`
+    )
+  }
+
+  return parsed
+}
+
 export function parseTransactionBlockFilters(searchParams) {
   return {
     network: normalizeOptionalText(searchParams.get('network')),
@@ -16,6 +38,7 @@ export function parseTransactionBlockFilters(searchParams) {
     status: normalizeOptionalText(searchParams.get('status')),
     digest: normalizeOptionalText(searchParams.get('digest')),
     transactionKind: normalizeOptionalText(searchParams.get('transactionKind')),
+    checkpoint: normalizeOptionalInteger(searchParams.get('checkpoint'), 'checkpoint'),
   }
 }
 
@@ -28,6 +51,9 @@ export function parseMoveCallFilters(searchParams) {
     packageId: normalizeOptionalText(searchParams.get('packageId')),
     moduleName: normalizeOptionalText(searchParams.get('moduleName')),
     functionName: normalizeOptionalText(searchParams.get('functionName')),
+    callIndex: normalizeOptionalInteger(searchParams.get('callIndex'), 'callIndex', {
+      allowZero: true,
+    }),
   }
 }
 
@@ -54,6 +80,9 @@ export async function listTransactionBlocks(sql, input) {
   }
   if (input.filters.transactionKind) {
     push('transaction_kind', input.filters.transactionKind)
+  }
+  if (input.filters.checkpoint != null) {
+    push('checkpoint', input.filters.checkpoint)
   }
 
   const whereText = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -139,6 +168,9 @@ export async function listMoveCalls(sql, input) {
   if (input.filters.functionName) {
     push('smc.function_name', input.filters.functionName)
   }
+  if (input.filters.callIndex != null) {
+    push('smc.call_index', input.filters.callIndex)
+  }
 
   const whereText = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -151,6 +183,7 @@ export async function listMoveCalls(sql, input) {
         smc.package_id,
         smc.module_name,
         smc.function_name,
+        smc.raw_call,
         smc.transaction_time,
         smc.created_at,
         t.network,
@@ -186,6 +219,7 @@ export async function listMoveCalls(sql, input) {
       packageId: row.package_id,
       moduleName: row.module_name,
       functionName: row.function_name,
+      rawCall: row.raw_call,
       transactionTime: row.transaction_time,
       createdAt: row.created_at,
       network: row.network,

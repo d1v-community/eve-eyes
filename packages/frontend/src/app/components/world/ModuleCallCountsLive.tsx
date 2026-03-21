@@ -28,6 +28,21 @@ function buildFingerprint(modules: ModuleCallCountItem[]) {
   )
 }
 
+function formatUpdatedTime(value: Date) {
+  return `Updated ${value.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })}`
+}
+
+function formatLatestTransactionTime(value: string) {
+  return new Date(value).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 export default function ModuleCallCountsLive({
   initialModules,
 }: {
@@ -36,10 +51,16 @@ export default function ModuleCallCountsLive({
   const [modules, setModules] = useState(initialModules)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(() => new Date())
+  const [hasMounted, setHasMounted] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [refreshToken, setRefreshToken] = useState(0)
   const fingerprintRef = useRef(buildFingerprint(initialModules))
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setHasMounted(true)
+    setLastUpdatedAt(new Date())
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -145,12 +166,8 @@ export default function ModuleCallCountsLive({
             {isRefreshing ? 'syncing' : 'live every 5s'}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            {lastUpdatedAt
-              ? `Updated ${lastUpdatedAt.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })}`
+            {hasMounted && lastUpdatedAt
+              ? formatUpdatedTime(lastUpdatedAt)
               : 'Waiting for first refresh'}
           </div>
         </div>
@@ -226,11 +243,10 @@ export default function ModuleCallCountsLive({
             </div>
             <p className="relative mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
               Latest tx:{' '}
-              {module.latestTransactionTime
-                ? new Date(module.latestTransactionTime).toLocaleString('en-US', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })
+              {hasMounted && module.latestTransactionTime
+                ? formatLatestTransactionTime(module.latestTransactionTime)
+                : module.latestTransactionTime
+                  ? 'Resolving local time...'
                 : 'No data yet'}
             </p>
           </article>

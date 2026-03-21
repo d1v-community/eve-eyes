@@ -15,6 +15,8 @@ import {
   listTypes,
 } from './world/api'
 
+export const dynamic = 'force-dynamic'
+
 const numberFormatter = new Intl.NumberFormat('en-US')
 
 export default async function Home() {
@@ -56,7 +58,7 @@ export default async function Home() {
             <div className="rounded-[1.9rem] border border-slate-200/70 bg-white/60 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/40 md:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center rounded-full border border-sky-200/80 bg-sky-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.32em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200">
-                  World API cockpit
+                  Look on Chain
                 </span>
                 <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50/85 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300">
                   {healthResult.error == null ? 'Network live' : 'Needs attention'}
