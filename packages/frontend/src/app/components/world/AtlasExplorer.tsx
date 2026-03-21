@@ -205,9 +205,11 @@ export default function AtlasExplorer({
         requestError instanceof Error
           ? requestError.message
           : 'Route search failed'
-      setError(message)
+      const isExpectedRouteMiss = message === 'No route found within the current search budget'
+
+      setError(isExpectedRouteMiss ? null : message)
       notification.error(
-        requestError instanceof Error ? requestError : null,
+        isExpectedRouteMiss ? null : requestError instanceof Error ? requestError : null,
         message,
         toastId
       )

@@ -23,6 +23,8 @@ type ThemeContextValue = {
 const STORAGE_KEY = 'theme'
 const THEME_STORAGE_EVENT = 'eve-eyes-theme-change'
 const ThemeContext = createContext<ThemeContextValue | null>(null)
+const getServerTheme = (): ThemeMode => 'system'
+const getServerSystemTheme = (): ResolvedTheme => 'light'
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') {
@@ -100,8 +102,12 @@ export function useTheme() {
 }
 
 const ThemeProvider: FC<PropsWithChildren> = ({ children }) => {
-  const theme = useSyncExternalStore(subscribeStoredTheme, getStoredTheme, () => 'system')
-  const systemTheme = useSyncExternalStore(subscribeSystemTheme, getSystemTheme, () => 'light')
+  const theme = useSyncExternalStore(subscribeStoredTheme, getStoredTheme, getServerTheme)
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemTheme,
+    getServerSystemTheme
+  )
   const resolvedTheme = theme === 'system' ? systemTheme : theme
 
   useEffect(() => {

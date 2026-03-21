@@ -11,7 +11,15 @@ import {
   RefreshCw,
   XCircle,
 } from 'lucide-react'
-import { type ReactNode, startTransition, useCallback, useEffect, useState } from 'react'
+import {
+  type ReactNode,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { notification } from '~~/helpers/notification'
 
 const FREE_PAGE_LIMIT = 3
@@ -85,6 +93,40 @@ const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 })
 
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000
+let nowSnapshot = Date.now()
+
+function subscribeNow(callback: () => void) {
+  const intervalId = window.setInterval(() => {
+    nowSnapshot = Date.now()
+    callback()
+  }, 1000)
+
+  return () => {
+    window.clearInterval(intervalId)
+  }
+}
+
+function getNow() {
+  return nowSnapshot
+}
+
+function formatRelativeTime(timestamp: number, now: number) {
+  const diffInSeconds = Math.max(0, Math.floor((now - timestamp) / 1000))
+
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds}s ago`
+  }
+
+  if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60)
+    return `${minutes} min ago`
+  }
+
+  const hours = Math.floor(diffInSeconds / 3600)
+  return `${hours} hour${hours === 1 ? '' : 's'} ago`
+}
+
 function truncateValue(value: string | null, start = 8, end = 6) {
   if (!value) {
     return 'Unavailable'
@@ -103,6 +145,32 @@ function formatDate(value: string | null) {
   }
 
   return dateTimeFormatter.format(new Date(value))
+}
+
+function RelativeTime({ value }: { value: string | null }) {
+  const now = useSyncExternalStore(subscribeNow, getNow, getNow)
+  const timestamp = useMemo(() => {
+    if (!value) {
+      return null
+    }
+
+    const parsed = new Date(value).getTime()
+    return Number.isNaN(parsed) ? null : parsed
+  }, [value])
+
+  if (timestamp == null) {
+    return 'Pending'
+  }
+
+  if (now - timestamp < ONE_DAY_IN_MS) {
+    return (
+      <span className="font-data" title={formatDate(value)}>
+        {formatRelativeTime(timestamp, now)}
+      </span>
+    )
+  }
+
+  return <span className="font-data">{formatDate(value)}</span>
 }
 
 function formatStatus(value: string | null) {
@@ -847,7 +915,7 @@ export default function OverviewIndexerTables() {
               {
                 key: 'time',
                 label: 'Time',
-                render: (item) => formatDate(item.transactionTime),
+                render: (item) => <RelativeTime value={item.transactionTime} />,
               },
             ]}
           />
@@ -905,7 +973,7 @@ export default function OverviewIndexerTables() {
               {
                 key: 'time',
                 label: 'Time',
-                render: (item) => formatDate(item.transactionTime),
+                render: (item) => <RelativeTime value={item.transactionTime} />,
               },
             ]}
           />

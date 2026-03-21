@@ -24,7 +24,7 @@ pnpm indexer:pipeline
 
 This starts two long-running processes:
 
-- `packages/indexer/src/main.mjs`: package transaction listener with polling fallback and `transaction_blocks` writer
+- `packages/indexer/src/main.mjs`: package transaction listener with polling fallback, `transaction_blocks` writer, and optional webhook notification sender
 - `packages/indexer/scripts/watch-transaction-block-move-calls.mjs`: move-call sync watcher
 
 If you prefer to run them separately, use two terminals:
@@ -40,7 +40,7 @@ pnpm --filter indexer run db:watch:transaction-block-move-calls
 Key command behavior:
 
 - `pnpm --filter indexer subscribe:package`
-  - Watches new package transactions and sends webhook notifications that include `transaction_time`.
+  - Legacy standalone webhook notifier. Keep it only if you intentionally want notifications without running the main DB ingester.
 - `pnpm --filter indexer backfill:package`
   - Backfills missing `transaction_blocks` rows and writes `transaction_time` into `transaction_blocks`.
 - `pnpm --filter indexer run db:watch:transaction-block-move-calls`
@@ -112,3 +112,4 @@ pnpm --filter indexer run db:import:suiscan /path/to/file.csv
 - `SUI_INDEXER_INITIAL_CURSOR_MODE` (`latest` by default, `earliest` for full historical replay)
 - `SUI_INDEXER_COMPENSATION_POLL_INTERVAL_MS`
 - `SUI_INDEXER_COMPENSATION_STATE_FILE`
+- `notify_webhook` / `NOTIFY_WEBHOOK` (optional webhook URL used by `src/main.mjs`)
