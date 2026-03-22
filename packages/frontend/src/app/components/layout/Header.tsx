@@ -7,7 +7,7 @@ import { Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import CustomConnectButton from '../CustomConnectButton'
 import LogoMark from '../LogoMark'
 import { headerNavigation, operationsNavigation } from '~~/world/roadmap'
@@ -22,15 +22,27 @@ const navIcons = {
 
 const operationRoutes = new Set<string>(operationsNavigation.map((item) => item.href))
 
+function subscribeToClientReady() {
+  return () => {}
+}
+
+function getClientSnapshot() {
+  return true
+}
+
+function getServerSnapshot() {
+  return false
+}
+
 const Header = () => {
   const { isConnected } = useCurrentWallet()
   const pathname = usePathname()
   const isApiAccessActive = pathname === '/access'
-  const [hasMounted, setHasMounted] = useState(false)
-
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
+  const hasMounted = useSyncExternalStore(
+    subscribeToClientReady,
+    getClientSnapshot,
+    getServerSnapshot
+  )
 
   return (
     <header className="supports-backdrop-blur:bg-white/60 dark:border-slate-50/1 sticky top-0 z-40 flex w-full justify-center border-b border-slate-900/10 bg-white/90 px-3 py-3 backdrop-blur transition-colors duration-500 dark:border-slate-50/10 dark:bg-slate-950/70">

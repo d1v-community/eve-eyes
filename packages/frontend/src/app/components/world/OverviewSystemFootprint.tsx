@@ -28,6 +28,7 @@ export default function OverviewSystemFootprint({
     constellations: 0,
   })
   const animationFrameRef = useRef<number | null>(null)
+  const animatedMetricsRef = useRef(animatedMetrics)
 
   const targetMetrics = useMemo(
     () => ({
@@ -38,7 +39,11 @@ export default function OverviewSystemFootprint({
   )
 
   useEffect(() => {
-    const startingMetrics = { ...animatedMetrics }
+    animatedMetricsRef.current = animatedMetrics
+  }, [animatedMetrics])
+
+  useEffect(() => {
+    const startingMetrics = { ...animatedMetricsRef.current }
     const startedAt = performance.now()
 
     if (animationFrameRef.current != null) {

@@ -417,50 +417,6 @@ function LoadingRows({ columnCount }: { columnCount: number }) {
   )
 }
 
-function MobileRow<TItem>({ item, columns }: { item: TItem; columns: Column<TItem>[] }) {
-  return (
-    <article className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div className="grid gap-3">
-        {columns.map((column) => (
-          <div
-            key={column.key}
-            className="grid grid-cols-[92px_minmax(0,1fr)] items-start gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 dark:border-slate-900"
-          >
-            <div className="font-display text-[10px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              {column.mobileLabel ?? column.label}
-            </div>
-            <div className="min-w-0">
-              <div className="group flex items-start gap-2">
-                <span
-                  className={`min-w-0 text-sm text-slate-800 dark:text-slate-100 ${column.allowWrap ? 'break-words whitespace-normal' : 'break-all'
-                    }`}
-                >
-                  {column.render(item)}
-                </span>
-                {column.copyValue?.(item) ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const value = column.copyValue?.(item)
-                      if (!value) return
-                      void navigator.clipboard.writeText(value)
-                      notification.success('Copied to clipboard')
-                    }}
-                    className="opacity-0 transition group-hover:opacity-100"
-                    aria-label={`Copy ${column.label}`}
-                  >
-                    <Copy className="mt-0.5 h-3.5 w-3.5 text-slate-400 hover:text-sky-600 dark:text-slate-500 dark:hover:text-sky-300" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  )
-}
-
 function ListingCard<TItem>({
   title,
   eyebrow,
@@ -653,6 +609,9 @@ function ListingCard<TItem>({
             Showing {visibleRecordCount} rows
           </div>
         </div>
+        <div className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500 lg:hidden dark:text-slate-400">
+          Swipe horizontally to view more columns
+        </div>
 
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
           <div
@@ -691,7 +650,7 @@ function ListingCard<TItem>({
         </div>
       ) : null}
 
-      <div className="relative mt-6 hidden overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-slate-800 dark:bg-slate-950/55 lg:block">
+      <div className="relative mt-6 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-slate-800 dark:bg-slate-950/55">
         {isPageTransitioning ? (
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white/72 backdrop-blur-[2px] dark:bg-slate-950/72">
             <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 shadow-[0_16px_32px_rgba(14,165,233,0.14)] dark:border-sky-900/70 dark:bg-slate-950/90 dark:text-sky-200">
@@ -701,7 +660,7 @@ function ListingCard<TItem>({
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-0">
+          <table className="min-w-[720px] border-separate border-spacing-0 md:min-w-full">
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50/95 dark:bg-slate-950/95">
                 {columns.map((column) => (
@@ -709,7 +668,7 @@ function ListingCard<TItem>({
                     key={column.key}
                     className="font-display border-b border-slate-200/80 px-4 py-4 text-left text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:border-slate-800 dark:text-slate-400"
                   >
-                    {column.label}
+                    {column.mobileLabel ?? column.label}
                   </th>
                 ))}
               </tr>
@@ -726,11 +685,13 @@ function ListingCard<TItem>({
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className="border-b border-slate-200/70 px-4 py-4 align-top text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                        className="h-[72px] border-b border-slate-200/70 px-4 py-4 align-middle text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
                       >
-                        <div className="group flex items-start gap-2">
+                        <div className="group flex items-center gap-2">
                           <span
-                            className={`font-body block ${column.allowWrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                            className={`font-body block min-w-0 ${column.allowWrap
+                              ? 'max-w-[14rem] truncate'
+                              : 'max-w-[12rem] truncate whitespace-nowrap'
                               }`}
                           >
                             {column.render(item)}
@@ -768,37 +729,6 @@ function ListingCard<TItem>({
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="relative mt-6 grid gap-3 lg:hidden">
-        {isPageTransitioning ? (
-          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[1.35rem] bg-white/72 backdrop-blur-[2px] dark:bg-slate-950/72">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 shadow-[0_16px_32px_rgba(14,165,233,0.14)] dark:border-sky-900/70 dark:bg-slate-950/90 dark:text-sky-200">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              Loading page
-            </div>
-          </div>
-        ) : null}
-        {isLoading && !isPageTransitioning ? (
-          Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={`mobile-loading-${index}`}
-              className="h-40 animate-pulse rounded-[1.35rem] border border-slate-200/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900/70"
-            />
-          ))
-        ) : items.length > 0 ? (
-          items.map((item, rowIndex) => (
-            <MobileRow
-              key={(item as { id?: string }).id ?? `${title}-mobile-${rowIndex}`}
-              item={item}
-              columns={columns}
-            />
-          ))
-        ) : (
-          <div className="font-body rounded-[1.35rem] border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            No records on this page.
-          </div>
-        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

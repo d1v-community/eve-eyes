@@ -73,6 +73,7 @@ export default function ModuleCallCountsLive({
   const [animatedCounts, setAnimatedCounts] = useState<Record<string, number>>(() =>
     buildAnimatedCountMap(initialModules)
   )
+  const animatedCountsRef = useRef(animatedCounts)
   const fingerprintRef = useRef(buildFingerprint(initialModules))
   const modulesRef = useRef(initialModules)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -85,6 +86,10 @@ export default function ModuleCallCountsLive({
     forceVisualRefresh?: boolean
     resetCountAnimation?: boolean
   }
+
+  useEffect(() => {
+    animatedCountsRef.current = animatedCounts
+  }, [animatedCounts])
 
   useEffect(() => {
     setHasMounted(true)
@@ -110,7 +115,7 @@ export default function ModuleCallCountsLive({
     const previousCounts = buildAnimatedCountMap(modules)
 
     for (const module of modules) {
-      previousCounts[module.moduleName] = animatedCounts[module.moduleName] ?? 0
+      previousCounts[module.moduleName] = animatedCountsRef.current[module.moduleName] ?? 0
     }
 
     const startedAt = performance.now()
