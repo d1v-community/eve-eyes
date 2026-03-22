@@ -29,7 +29,7 @@ export default function OperationsShell({ children }: OperationsShellProps) {
   const pathname = usePathname()
 
   return (
-    <div className="flex w-full max-w-6xl min-w-0 flex-col gap-6 px-3 lg:flex-row lg:items-start">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6 px-3 lg:flex-row lg:items-start">
       <aside className="lg:sticky lg:top-28 lg:w-72 lg:flex-none">
         <div className="overflow-hidden rounded-[2rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,0.9))] p-3 sm:p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(2,6,23,0.86),rgba(15,23,42,0.82))]">
           <div className="rounded-[1.5rem] border border-sky-200/80 bg-sky-50/70 p-3 sm:p-4 dark:border-sky-900/70 dark:bg-sky-950/30">

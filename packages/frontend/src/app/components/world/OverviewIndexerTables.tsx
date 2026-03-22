@@ -269,14 +269,17 @@ function JsonPreview({ value }: { value: unknown }) {
   const lines = formatted.split('\n')
 
   return (
-    <pre className="max-h-[min(28rem,60vh)] overflow-auto rounded-[1rem] border border-slate-800 bg-slate-950/95 p-3 text-xs leading-6 shadow-[0_22px_48px_rgba(2,6,23,0.42)]">
-      <code className="block min-w-max whitespace-pre">
+    <pre className="max-h-[calc(1.5rem*5+1.5rem)] w-full max-w-[min(26rem,calc(100vw-7rem))] overflow-y-auto overflow-x-hidden rounded-[1rem] border border-slate-800 bg-slate-950/95 p-3 text-xs leading-6 shadow-[0_22px_48px_rgba(2,6,23,0.42)] lg:max-w-[28rem]">
+      <code className="block whitespace-pre-wrap break-words">
         {lines.map((line, lineIndex) => (
-          <div key={`json-line-${lineIndex}`} className="whitespace-pre">
+          <div
+            key={`json-line-${lineIndex}`}
+            className="max-w-full whitespace-pre-wrap break-words"
+          >
             {tokenizeJsonLine(line).map((token, tokenIndex) => (
               <span
                 key={`json-line-${lineIndex}-token-${tokenIndex}`}
-                className={`${token.tone} whitespace-pre`}
+                className={`${token.tone} whitespace-pre-wrap break-words`}
               >
                 {token.value}
               </span>
@@ -290,16 +293,18 @@ function JsonPreview({ value }: { value: unknown }) {
 
 function RawCallPreview({ item }: { item: MoveCallItem }) {
   return (
-    <div className="group/raw relative inline-flex">
-      <span className="inline-flex cursor-default items-center rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:border-sky-900/80 dark:bg-sky-950/35 dark:text-sky-200">
-        Inspect
-      </span>
+    <div className="group/raw relative inline-flex max-w-full">
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex cursor-default items-center rounded-full border border-sky-200/80 bg-sky-50/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:border-sky-900/80 dark:bg-sky-950/35 dark:text-sky-200">
+          Inspect
+        </span>
+        {/* <span className="rounded-full border border-slate-300/80 bg-white/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+          call #{item.callIndex ?? '--'}
+        </span> */}
+      </div>
 
-      <div className="pointer-events-none invisible absolute left-0 top-full z-30 mt-3 w-[min(32rem,80vw)] -translate-y-1 rounded-[1.2rem] border border-slate-700/90 bg-[linear-gradient(180deg,rgba(2,6,23,0.98),rgba(15,23,42,0.96))] p-4 opacity-0 shadow-[0_28px_80px_rgba(2,6,23,0.48)] transition-all duration-150 group-hover/raw:pointer-events-auto group-hover/raw:visible group-hover/raw:translate-y-0 group-hover/raw:opacity-100">
+      <div className="pointer-events-none invisible absolute left-0 top-full z-30 mt-3 w-[min(26rem,calc(100vw-3rem))] max-w-[calc(100vw-3rem)] -translate-y-1 rounded-[1.2rem] border border-slate-700/90 bg-[linear-gradient(180deg,rgba(2,6,23,0.98),rgba(15,23,42,0.96))] p-4 opacity-0 shadow-[0_28px_80px_rgba(2,6,23,0.48)] transition-all duration-150 group-hover/raw:pointer-events-auto group-hover/raw:visible group-hover/raw:translate-y-0 group-hover/raw:opacity-100 sm:w-[min(28rem,calc(100vw-4rem))]">
         <div className="mb-3 flex flex-wrap gap-2">
-          <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-300">
-            call #{item.callIndex ?? '--'}
-          </span>
           <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-300">
             {item.moduleName ?? 'unknown'}::{item.functionName ?? 'unknown'}
           </span>
@@ -308,6 +313,13 @@ function RawCallPreview({ item }: { item: MoveCallItem }) {
       </div>
     </div>
   )
+}
+
+function getPaginationButtonClassName(isActive = false) {
+  return `!rounded-full !px-3.5 !transition-all !duration-200 hover:-translate-y-0.5 hover:!shadow-[0_14px_26px_rgba(14,165,233,0.16)] active:scale-95 ${isActive
+    ? '!shadow-[0_16px_30px_rgba(14,165,233,0.2)]'
+    : '!bg-white/85 hover:!bg-sky-50 dark:!bg-slate-950/60 dark:hover:!bg-slate-900'
+    }`
 }
 
 function buildPageWindow(currentPage: number, totalPages: number) {
@@ -420,9 +432,8 @@ function MobileRow<TItem>({ item, columns }: { item: TItem; columns: Column<TIte
             <div className="min-w-0">
               <div className="group flex items-start gap-2">
                 <span
-                  className={`min-w-0 text-sm text-slate-800 dark:text-slate-100 ${
-                    column.allowWrap ? 'break-words whitespace-normal' : 'break-all'
-                  }`}
+                  className={`min-w-0 text-sm text-slate-800 dark:text-slate-100 ${column.allowWrap ? 'break-words whitespace-normal' : 'break-all'
+                    }`}
                 >
                   {column.render(item)}
                 </span>
@@ -463,11 +474,12 @@ function ListingCard<TItem>({
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState<PaginationPayload | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [hintMessage, setHintMessage] = useState<string | null>(null)
 
   const loadPage = useCallback(
-    async (targetPage: number) => {
+    async (targetPage: number, options?: { preserveContent?: boolean }) => {
       setErrorMessage(null)
       setHintMessage(null)
 
@@ -486,6 +498,7 @@ function ListingCard<TItem>({
       }
 
       setIsLoading(true)
+      setIsPageTransitioning(options?.preserveContent === true)
 
       try {
         const response = await fetch(`${endpoint}?page=${targetPage}&pageSize=${PAGE_SIZE}`, {
@@ -510,6 +523,7 @@ function ListingCard<TItem>({
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load data')
       } finally {
         setIsLoading(false)
+        setIsPageTransitioning(false)
       }
     },
     [endpoint, refreshAuthStatus]
@@ -553,9 +567,10 @@ function ListingCard<TItem>({
           variant="soft"
           onClick={() => {
             startTransition(() => {
-              loadPage(page).catch((error) => {
+              loadPage(page, { preserveContent: items.length > 0 }).catch((error) => {
                 setErrorMessage(error instanceof Error ? error.message : 'Failed to refresh data')
                 setIsLoading(false)
+                setIsPageTransitioning(false)
               })
             })
           }}
@@ -676,7 +691,15 @@ function ListingCard<TItem>({
         </div>
       ) : null}
 
-      <div className="mt-6 hidden overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-slate-800 dark:bg-slate-950/55 lg:block">
+      <div className="relative mt-6 hidden overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:border-slate-800 dark:bg-slate-950/55 lg:block">
+        {isPageTransitioning ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white/72 backdrop-blur-[2px] dark:bg-slate-950/72">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 shadow-[0_16px_32px_rgba(14,165,233,0.14)] dark:border-sky-900/70 dark:bg-slate-950/90 dark:text-sky-200">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              Loading page
+            </div>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-full border-separate border-spacing-0">
             <thead className="sticky top-0 z-10">
@@ -692,7 +715,7 @@ function ListingCard<TItem>({
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {isLoading && !isPageTransitioning ? (
                 <LoadingRows columnCount={columns.length} />
               ) : items.length > 0 ? (
                 items.map((item, rowIndex) => (
@@ -707,9 +730,8 @@ function ListingCard<TItem>({
                       >
                         <div className="group flex items-start gap-2">
                           <span
-                            className={`font-body block ${
-                              column.allowWrap ? 'whitespace-normal' : 'whitespace-nowrap'
-                            }`}
+                            className={`font-body block ${column.allowWrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                              }`}
                           >
                             {column.render(item)}
                           </span>
@@ -748,8 +770,16 @@ function ListingCard<TItem>({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 lg:hidden">
-        {isLoading ? (
+      <div className="relative mt-6 grid gap-3 lg:hidden">
+        {isPageTransitioning ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[1.35rem] bg-white/72 backdrop-blur-[2px] dark:bg-slate-950/72">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700 shadow-[0_16px_32px_rgba(14,165,233,0.14)] dark:border-sky-900/70 dark:bg-slate-950/90 dark:text-sky-200">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              Loading page
+            </div>
+          </div>
+        ) : null}
+        {isLoading && !isPageTransitioning ? (
           Array.from({ length: 4 }).map((_, index) => (
             <div
               key={`mobile-loading-${index}`}
@@ -778,62 +808,73 @@ function ListingCard<TItem>({
             : 'Fetching totals'}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="soft"
-            onClick={() => {
-              startTransition(() => {
-                loadPage(Math.max(1, page - 1)).catch((error) => {
-                  setErrorMessage(error instanceof Error ? error.message : 'Failed to change page')
-                  setIsLoading(false)
-                })
-              })
-            }}
-            disabled={isLoading || page <= 1}
-            className="!rounded-full"
-          >
-            Prev
-          </Button>
-
-          {pageWindow.map((pageNumber) => (
+        <div className="rounded-full border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_16px_36px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950/60">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              key={pageNumber}
               type="button"
-              variant={pageNumber === page ? 'solid' : 'soft'}
+              variant="soft"
               onClick={() => {
                 startTransition(() => {
-                  loadPage(pageNumber).catch((error) => {
-                    setErrorMessage(
-                      error instanceof Error ? error.message : 'Failed to change page'
-                    )
+                  loadPage(Math.max(1, page - 1), {
+                    preserveContent: items.length > 0,
+                  }).catch((error) => {
+                    setErrorMessage(error instanceof Error ? error.message : 'Failed to change page')
                     setIsLoading(false)
+                    setIsPageTransitioning(false)
                   })
                 })
               }}
-              disabled={isLoading}
-              className="!rounded-full"
+              disabled={isLoading || page <= 1}
+              className={getPaginationButtonClassName()}
             >
-              {pageNumber}
+              Prev
             </Button>
-          ))}
 
-          <Button
-            type="button"
-            variant="soft"
-            onClick={() => {
-              startTransition(() => {
-                loadPage(page + 1).catch((error) => {
-                  setErrorMessage(error instanceof Error ? error.message : 'Failed to change page')
-                  setIsLoading(false)
+            {pageWindow.map((pageNumber) => (
+              <Button
+                key={pageNumber}
+                type="button"
+                variant={pageNumber === page ? 'solid' : 'soft'}
+                onClick={() => {
+                  startTransition(() => {
+                    loadPage(pageNumber, {
+                      preserveContent: items.length > 0,
+                    }).catch((error) => {
+                      setErrorMessage(
+                        error instanceof Error ? error.message : 'Failed to change page'
+                      )
+                      setIsLoading(false)
+                      setIsPageTransitioning(false)
+                    })
+                  })
+                }}
+                disabled={isLoading}
+                className={getPaginationButtonClassName(pageNumber === page)}
+              >
+                {pageNumber}
+              </Button>
+            ))}
+
+            <Button
+              type="button"
+              variant="soft"
+              onClick={() => {
+                startTransition(() => {
+                  loadPage(page + 1, {
+                    preserveContent: items.length > 0,
+                  }).catch((error) => {
+                    setErrorMessage(error instanceof Error ? error.message : 'Failed to change page')
+                    setIsLoading(false)
+                    setIsPageTransitioning(false)
+                  })
                 })
-              })
-            }}
-            disabled={isLoading || page >= visibleTotalPages}
-            className="!rounded-full"
-          >
-            Next
-          </Button>
+              }}
+              disabled={isLoading || page >= visibleTotalPages}
+              className={getPaginationButtonClassName()}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
     </article>
@@ -878,105 +919,105 @@ export default function OverviewIndexerTables() {
 
   return (
     <section className="grid gap-8">
-          <ListingCard<TransactionBlockItem>
-            title="Transaction Blocks"
-            eyebrow="Primary ledger stream"
-            description="Recent blocks with digest, sender, kind, status, and time."
-            endpoint="/api/indexer/transaction-blocks"
-            authType={authType}
-            refreshAuthStatus={refreshAuthStatus}
-            columns={[
-              {
-                key: 'digest',
-                label: 'Digest',
-                render: (item) => (
-                  <span className="font-data">{truncateValue(item.digest, 10, 8)}</span>
-                ),
-                copyValue: (item) => item.digest,
-              },
-              {
-                key: 'sender',
-                label: 'Sender',
-                render: (item) => (
-                  <span className="font-data">{truncateValue(item.senderAddress)}</span>
-                ),
-                copyValue: (item) => item.senderAddress,
-              },
-              {
-                key: 'kind',
-                label: 'Kind',
-                render: (item) => item.transactionKind ?? 'Unknown',
-              },
-              {
-                key: 'status',
-                label: 'Status',
-                render: (item) => renderStatusIcon(item.status),
-              },
-              {
-                key: 'time',
-                label: 'Time',
-                render: (item) => <RelativeTime value={item.transactionTime} />,
-              },
-            ]}
-          />
+      <ListingCard<TransactionBlockItem>
+        title="Transaction Blocks"
+        eyebrow="Primary ledger stream"
+        description="Recent blocks with digest, sender, kind, status, and time."
+        endpoint="/api/indexer/transaction-blocks"
+        authType={authType}
+        refreshAuthStatus={refreshAuthStatus}
+        columns={[
+          {
+            key: 'digest',
+            label: 'Digest',
+            render: (item) => (
+              <span className="font-data">{truncateValue(item.digest, 10, 8)}</span>
+            ),
+            copyValue: (item) => item.digest,
+          },
+          {
+            key: 'sender',
+            label: 'Sender',
+            render: (item) => (
+              <span className="font-data">{truncateValue(item.senderAddress)}</span>
+            ),
+            copyValue: (item) => item.senderAddress,
+          },
+          {
+            key: 'kind',
+            label: 'Kind',
+            render: (item) => item.transactionKind ?? 'Unknown',
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            render: (item) => renderStatusIcon(item.status),
+          },
+          {
+            key: 'time',
+            label: 'Time',
+            render: (item) => <RelativeTime value={item.transactionTime} />,
+          },
+        ]}
+      />
 
-          <ListingCard<MoveCallItem>
-            title="Move Call"
-            eyebrow="Execution detail stream"
-            description="Move execution targets, package references, sender, and time."
-            endpoint="/api/indexer/move-calls"
-            authType={authType}
-            refreshAuthStatus={refreshAuthStatus}
-            columns={[
-              {
-                key: 'txDigest',
-                label: 'Tx Digest',
-                render: (item) => (
-                  <span className="font-data">{truncateValue(item.txDigest, 10, 8)}</span>
-                ),
-                copyValue: (item) => item.txDigest,
-              },
-              {
-                key: 'target',
-                label: 'Target',
-                render: (item) => (
-                  <span className="font-data">
-                    {`${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`}
-                  </span>
-                ),
-                copyValue: (item) =>
-                  `${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`,
-              },
-              {
-                key: 'rawCall',
-                label: 'Raw Call',
-                mobileLabel: 'Raw',
-                allowWrap: true,
-                render: (item) => <RawCallPreview item={item} />,
-              },
-              {
-                key: 'package',
-                label: 'Package',
-                render: (item) => (
-                  <span className="font-data">{truncateValue(item.packageId)}</span>
-                ),
-                copyValue: (item) => item.packageId,
-              },
-              {
-                key: 'sender',
-                label: 'Sender',
-                render: (item) => (
-                  <span className="font-data">{truncateValue(item.senderAddress)}</span>
-                ),
-                copyValue: (item) => item.senderAddress,
-              },
-              {
-                key: 'time',
-                label: 'Time',
-                render: (item) => <RelativeTime value={item.transactionTime} />,
-              },
-            ]}
-          />
+      <ListingCard<MoveCallItem>
+        title="Move Call"
+        eyebrow="Execution detail stream"
+        description="Move execution targets, package references, sender, and time."
+        endpoint="/api/indexer/move-calls"
+        authType={authType}
+        refreshAuthStatus={refreshAuthStatus}
+        columns={[
+          {
+            key: 'txDigest',
+            label: 'Tx Digest',
+            render: (item) => (
+              <span className="font-data">{truncateValue(item.txDigest, 10, 8)}</span>
+            ),
+            copyValue: (item) => item.txDigest,
+          },
+          {
+            key: 'rawCall',
+            label: 'Raw Call',
+            mobileLabel: 'Raw',
+            allowWrap: true,
+            render: (item) => <RawCallPreview item={item} />,
+          },
+          {
+            key: 'target',
+            label: 'Target',
+            render: (item) => (
+              <span className="font-data">
+                {`${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`}
+              </span>
+            ),
+            copyValue: (item) =>
+              `${item.moduleName ?? 'unknown'}::${item.functionName ?? 'unknown'}`,
+          },
+          {
+            key: 'package',
+            label: 'Package',
+            render: (item) => (
+              <span className="font-data">{truncateValue(item.packageId)}</span>
+            ),
+            copyValue: (item) => item.packageId,
+          },
+          {
+            key: 'sender',
+            label: 'Sender',
+            render: (item) => (
+              <span className="font-data">{truncateValue(item.senderAddress)}</span>
+            ),
+            copyValue: (item) => item.senderAddress,
+          },
+          {
+            key: 'time',
+            label: 'Time',
+            render: (item) => <RelativeTime value={item.transactionTime} />,
+          },
+        ]}
+      />
     </section>
   )
 }

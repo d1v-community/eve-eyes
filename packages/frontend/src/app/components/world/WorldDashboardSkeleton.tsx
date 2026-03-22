@@ -2,7 +2,7 @@ const skeletonCards = Array.from({ length: 4 }, (_, index) => index)
 
 export default function WorldDashboardSkeleton() {
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-3">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {skeletonCards.map((card) => (
           <div

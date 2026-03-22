@@ -153,10 +153,10 @@ export default async function WorldDashboard() {
         : jumpsResult.error
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-3">
       <section
         id="overview"
-        className="grid gap-4 rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(77,162,255,0.18),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.9))] p-6 shadow-[0_24px_80px_rgba(15,23,42,0.1)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_32%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(15,23,42,0.82))] md:grid-cols-[1.2fr_0.8fr] md:p-8"
+        className="grid w-full gap-4 rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(77,162,255,0.18),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,252,0.9))] p-6 shadow-[0_24px_80px_rgba(15,23,42,0.1)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.2),_transparent_32%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(15,23,42,0.82))] md:grid-cols-[1.2fr_0.8fr] md:p-8"
       >
         <div className="flex flex-col gap-5">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200/80 bg-sky-50/80 px-3 py-1 text-xs uppercase tracking-[0.3em] text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200">

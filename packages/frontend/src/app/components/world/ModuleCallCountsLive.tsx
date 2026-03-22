@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, Radio, RefreshCw, Sparkles } from 'lucide-react'
+import { Activity, Radio, RefreshCw, Sparkles, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
@@ -33,17 +33,6 @@ function buildCountMap(modules: ModuleCallCountItem[]) {
   return new Map(modules.map((module) => [module.moduleName, module.callCount]))
 }
 
-function getGrowingModules(
-  previousModules: ModuleCallCountItem[],
-  nextModules: ModuleCallCountItem[]
-) {
-  const previousCounts = buildCountMap(previousModules)
-
-  return nextModules
-    .filter((module) => module.callCount > (previousCounts.get(module.moduleName) ?? 0))
-    .map((module) => module.moduleName)
-}
-
 function buildAnimatedCountMap(modules: ModuleCallCountItem[], initialValue = 0) {
   return Object.fromEntries(modules.map((module) => [module.moduleName, initialValue]))
 }
@@ -73,8 +62,13 @@ export default function ModuleCallCountsLive({
   const [isPolling, setIsPolling] = useState(false)
   const [isGrowthFlashActive, setIsGrowthFlashActive] = useState(false)
   const [highlightedModules, setHighlightedModules] = useState<string[]>([])
+  const [moduleGrowthDeltas, setModuleGrowthDeltas] = useState<Record<string, number>>({})
+  const [totalGrowthDelta, setTotalGrowthDelta] = useState(0)
   const [hasMounted, setHasMounted] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(
+    Math.ceil(POLL_INTERVAL_MS / 1000)
+  )
   const [totalGrowthToken, setTotalGrowthToken] = useState(0)
   const [animatedCounts, setAnimatedCounts] = useState<Record<string, number>>(() =>
     buildAnimatedCountMap(initialModules)
@@ -83,10 +77,33 @@ export default function ModuleCallCountsLive({
   const modulesRef = useRef(initialModules)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const countAnimationFrameRef = useRef<number | null>(null)
+  const nextRefreshAtRef = useRef<number>(Date.now() + POLL_INTERVAL_MS)
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadRef = useRef<((options?: LoadOptions) => Promise<void>) | null>(null)
+
+  type LoadOptions = {
+    forceVisualRefresh?: boolean
+    resetCountAnimation?: boolean
+  }
 
   useEffect(() => {
     setHasMounted(true)
     setLastUpdatedAt(new Date())
+  }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const remainingMs = Math.max(0, nextRefreshAtRef.current - Date.now())
+      const nextSeconds = Math.ceil(remainingMs / 1000)
+
+      setSecondsUntilRefresh((currentSeconds) =>
+        currentSeconds === nextSeconds ? currentSeconds : nextSeconds
+      )
+    }, 250)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
   }, [])
 
   useEffect(() => {
@@ -137,7 +154,7 @@ export default function ModuleCallCountsLive({
   useEffect(() => {
     let cancelled = false
 
-    const load = async () => {
+    const load = async (options?: LoadOptions) => {
       try {
         if (!cancelled) {
           setIsPolling(true)
@@ -161,19 +178,38 @@ export default function ModuleCallCountsLive({
         setLastUpdatedAt(new Date())
 
         const previousModules = modulesRef.current
-        const growingModules = getGrowingModules(previousModules, nextModules)
+        const previousCounts = buildCountMap(previousModules)
         const previousTotal = previousModules.reduce((sum, module) => sum + module.callCount, 0)
         const nextTotal = nextModules.reduce((sum, module) => sum + module.callCount, 0)
+        const nextHighlightedModules = nextModules
+          .filter((module) => module.callCount > (previousCounts.get(module.moduleName) ?? 0))
+          .map((module) => module.moduleName)
+        const nextModuleGrowthDeltas = Object.fromEntries(
+          nextModules
+            .filter((module) => module.callCount > (previousCounts.get(module.moduleName) ?? 0))
+            .map((module) => [
+              module.moduleName,
+              module.callCount - (previousCounts.get(module.moduleName) ?? 0),
+            ])
+        )
+        const shouldForceVisualRefresh = options?.forceVisualRefresh === true
+        const shouldResetCountAnimation = options?.resetCountAnimation === true
 
-        if (nextFingerprint !== fingerprintRef.current) {
+        if (shouldResetCountAnimation) {
+          setAnimatedCounts(buildAnimatedCountMap(nextModules))
+        }
+
+        if (nextFingerprint !== fingerprintRef.current || shouldResetCountAnimation) {
           fingerprintRef.current = nextFingerprint
           modulesRef.current = nextModules
           setModules(nextModules)
         }
 
-        if (growingModules.length > 0 || nextTotal > previousTotal) {
-          setHighlightedModules(growingModules)
+        if (nextHighlightedModules.length > 0 || nextTotal > previousTotal || shouldForceVisualRefresh) {
+          setHighlightedModules(nextHighlightedModules)
+          setModuleGrowthDeltas(nextModuleGrowthDeltas)
           setIsGrowthFlashActive(true)
+          setTotalGrowthDelta(Math.max(0, nextTotal - previousTotal))
           setTotalGrowthToken((value) => value + 1)
 
           if (flashTimeoutRef.current != null) {
@@ -182,7 +218,9 @@ export default function ModuleCallCountsLive({
 
           flashTimeoutRef.current = setTimeout(() => {
             setHighlightedModules([])
+            setModuleGrowthDeltas({})
             setIsGrowthFlashActive(false)
+            setTotalGrowthDelta(0)
           }, GROWTH_FLASH_MS)
         }
       } catch (error) {
@@ -192,20 +230,37 @@ export default function ModuleCallCountsLive({
         )
       } finally {
         if (!cancelled) {
+          nextRefreshAtRef.current = Date.now() + POLL_INTERVAL_MS
           setIsPolling(false)
+          setSecondsUntilRefresh(Math.ceil(POLL_INTERVAL_MS / 1000))
+          scheduleNextRefresh()
         }
       }
     }
 
-    void load()
+    loadRef.current = load
 
-    const intervalId = setInterval(() => {
-      void load()
-    }, POLL_INTERVAL_MS)
+    const scheduleNextRefresh = () => {
+      if (cancelled) return
+
+      const delay = Math.max(0, nextRefreshAtRef.current - Date.now())
+
+      if (refreshTimeoutRef.current != null) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        void load().finally(() => {
+          scheduleNextRefresh()
+        })
+      }, delay)
+    }
+
+    void load()
 
     return () => {
       cancelled = true
-      clearInterval(intervalId)
+      loadRef.current = null
 
       if (flashTimeoutRef.current != null) {
         clearTimeout(flashTimeoutRef.current)
@@ -213,6 +268,10 @@ export default function ModuleCallCountsLive({
 
       if (countAnimationFrameRef.current != null) {
         cancelAnimationFrame(countAnimationFrameRef.current)
+      }
+
+      if (refreshTimeoutRef.current != null) {
+        clearTimeout(refreshTimeoutRef.current)
       }
     }
   }, [])
@@ -257,19 +316,35 @@ export default function ModuleCallCountsLive({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <div
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.26em] ${
-              isPolling
-                ? 'border-cyan-300/80 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-200'
-                : 'border-emerald-300/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
-            }`}
-          >
-            {isPolling ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Radio className="h-3.5 w-3.5" />
-            )}
-            {isPolling ? 'syncing' : 'live every 5s'}
+          <div className="flex items-center gap-2">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.26em] ${
+                isPolling
+                  ? 'border-cyan-300/80 bg-cyan-50 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-200'
+                  : 'border-emerald-300/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+              }`}
+            >
+              {isPolling ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Radio className="h-3.5 w-3.5" />
+              )}
+              {isPolling ? 'syncing' : `next update in ${secondsUntilRefresh}s`}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadRef.current?.({
+                  forceVisualRefresh: true,
+                  resetCountAnimation: true,
+                })
+              }}
+              disabled={isPolling}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:text-sky-700 hover:shadow-[0_14px_26px_rgba(14,165,233,0.14)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-200 dark:hover:border-sky-700 dark:hover:text-sky-300"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Refresh now
+            </button>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {hasMounted && lastUpdatedAt
@@ -289,7 +364,7 @@ export default function ModuleCallCountsLive({
           </div>
         </article>
         <article
-          className={`rounded-[1.3rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60 ${
+          className={`relative rounded-[1.3rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60 ${
             isGrowthFlashActive ? 'module-total-rise' : ''
           }`}
         >
@@ -305,6 +380,11 @@ export default function ModuleCallCountsLive({
           >
             {numberFormatter.format(totalCalls)}
           </div>
+          {totalGrowthDelta > 0 ? (
+            <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-emerald-100/95 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-emerald-700 shadow-[0_12px_28px_rgba(16,185,129,0.18)] dark:bg-emerald-950/80 dark:text-emerald-300">
+              <span className="module-delta-float">+{numberFormatter.format(totalGrowthDelta)}</span>
+            </div>
+          ) : null}
         </article>
         <article className="rounded-[1.3rem] border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
@@ -361,18 +441,122 @@ export default function ModuleCallCountsLive({
                 Count increased
               </div>
             ) : null}
+            {moduleGrowthDeltas[module.moduleName] != null ? (
+              <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-emerald-100/95 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-emerald-700 shadow-[0_10px_26px_rgba(16,185,129,0.18)] dark:bg-emerald-950/80 dark:text-emerald-300">
+                <span className="module-delta-float">
+                  +{numberFormatter.format(moduleGrowthDeltas[module.moduleName])}
+                </span>
+              </div>
+            ) : null}
             <p className="relative mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
               Latest tx:{' '}
               {hasMounted && module.latestTransactionTime
                 ? formatLatestTransactionTime(module.latestTransactionTime)
                 : module.latestTransactionTime
                   ? 'Resolving local time...'
-                : 'No data yet'}
+                  : 'No data yet'}
             </p>
           </article>
         ))}
       </div>
 
+      <style jsx>{`
+        @keyframes module-scan {
+          0% {
+            transform: translateX(0) skewX(-18deg);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(420%) skewX(-18deg);
+            opacity: 0;
+          }
+        }
+
+        @keyframes module-rise {
+          0% {
+            transform: translateY(0) scale(1);
+            box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+          }
+          35% {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 18px 42px rgba(16, 185, 129, 0.22);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+            box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+          }
+        }
+
+        @keyframes module-number-rise {
+          0% {
+            transform: translateY(0) scale(1);
+          }
+          30% {
+            transform: translateY(-4px) scale(1.12);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes module-spark-rise {
+          0% {
+            transform: scale(1) rotate(0deg);
+            opacity: 0.7;
+          }
+          50% {
+            transform: scale(1.25) rotate(10deg);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 0.85;
+          }
+        }
+
+        @keyframes module-delta-float {
+          0% {
+            transform: translateY(6px) scale(0.92);
+            opacity: 0;
+          }
+          20% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-18px) scale(1.02);
+            opacity: 0;
+          }
+        }
+
+        .module-card-rise {
+          animation: module-rise 1s ease-out;
+        }
+
+        .module-count-rise {
+          animation: module-number-rise 0.8s ease-out;
+        }
+
+        .module-total-rise {
+          animation: module-rise 1s ease-out;
+        }
+
+        .module-total-rise-number {
+          animation: module-number-rise 0.85s ease-out;
+        }
+
+        .module-spark-rise {
+          animation: module-spark-rise 0.9s ease-out;
+        }
+
+        .module-delta-float {
+          display: inline-flex;
+          animation: module-delta-float 1.4s ease-out forwards;
+        }
+      `}</style>
     </section>
   )
 }

@@ -1,165 +1,112 @@
-# sui-nextjs-auth-template（pnpm Monorepo）
+# EVE EYES
 
-这个仓库基于 **EVE EYES**，使用 pnpm workspace 管理前后端代码：
+EVE EYES 是一个面向链上比赛与链上游戏场景的数据控制台。它把原始链上行为转化为可阅读、可查询、可复用的产品体验，让玩家、开发者和平台方都能更快使用这些数据。
 
-- `packages/frontend`：Next.js 前端
-- `packages/backend`：Move 合约 + Suibase 相关脚本
+[English Version](./README.md)
 
-## 环境要求
+## 我们解决什么问题
 
-- Node.js >= 20
-- pnpm（建议使用项目声明的版本）
-- Suibase（用于本地链/网络工具）
+链上游戏数据是真实存在的，但通常并不好用。
 
-## 安装依赖
+大多数参赛者或生态开发者都会遇到同样的问题：
 
-在仓库根目录执行：
+- 数据在链上，但埋在原始交易里
+- 浏览器只能“看”，很难直接拿来参加比赛或做产品
+- 团队往往先花很多时间清洗数据，真正的创意反而开始得太晚
+
+EVE EYES 想解决的，就是这层摩擦。我们把链上活动整理成可探索的界面，也开放成可调用的 API。
+
+## EVE EYES 是什么
+
+EVE EYES 把三件事情做成了一个产品：
+
+- 一个有世界观氛围的游戏控制台
+- 一层可搜索、可过滤的链上索引数据
+- 一套基于钱包登录和 API Key 的开放访问能力
+
+这意味着用户打开产品后，不只是“看到链上发生了什么”，而是可以立刻把这些数据继续用于自己的作品、面板、验证器或比赛方案。
+
+## 为什么它有竞争力
+
+### 实用性优先
+
+这不是一个只看视觉的概念页，而是一个真的有用的工具。
+
+用户可以：
+
+- 查看已索引的交易活动
+- 查询已解析的 Move calls
+- 通过前端探索航线、星系与世界信息
+- 创建 API Key，把数据接到自己的作品里
+
+### 氛围感与主题契合
+
+EVE EYES 不是传统后台，而像是游戏世界里的指挥台。它既保留了工具的效率，也让整体体验更贴近游戏主题，更适合在 Hackathon 场景中向评委展示。
+
+### 创意与原创性
+
+它不是单纯的区块浏览器，也不是普通的 API 平台。
+
+它的原创性来自于这几个能力的组合：
+
+- 有氛围感的前端呈现
+- 结构化的链上索引数据
+- 可编程的 API Key 访问
+- 对比赛参与者直接有帮助的实际用途
+
+### 易用性
+
+主路径非常清晰：
+
+1. 连接钱包
+2. 登录
+3. 创建 API Key
+4. 查询数据
+5. 用这些数据继续构建作品
+
+## 适合谁使用
+
+EVE EYES 面向：
+
+- 想看懂链上游戏活动的玩家
+- 需要快速拿到结构化数据的开发者
+- 希望让更多用户基于真实链上数据参赛的平台方
+- 希望把时间花在创意上、而不是前期清洗数据的 Hackathon 团队
+
+## 为什么适合比赛场景
+
+如果平台希望更多用户参与比赛，门槛不应该是“先理解底层链上数据模型”。
+
+借助 EVE EYES，参赛者可以：
+
+- 快速获取 API Key
+- 直接访问已索引的数据
+- 更快开始原型开发
+- 把更多时间留给玩法、创意和展示
+
+所以它不只是一个展示型 demo，更像是一层能真正支持更多参赛作品产生的数据基础设施。
+
+## 当前产品体验
+
+当前已经覆盖的体验包括：
+
+- 航线规划与星系探索
+- 舰船与舰队信息视图
+- 已索引交易与 Move call 查询
+- 基于钱包的登录
+- API Key 创建与管理
+
+## 一句话介绍
+
+> EVE EYES 把原始链上游戏数据，变成了一个有氛围、可查询、可复用的比赛级控制台与 API。
+
+## 如何运行
 
 ```bash
 pnpm install
-```
-
-## 本地开发（从根目录启动前端）
-
-在仓库根目录执行：
-
-```bash
 pnpm dev
 ```
 
-该命令会启动 `packages/frontend` 的 Next.js 开发服务器。
+## License
 
-## 后端（Move 合约）如何部署
-
-这里的“后端”指的是 Move 合约包。部署合约后，会自动把最新的 `packageId` 写入前端的 `packages/frontend/.env.local`，供前端调用。
-
-### Localnet（推荐用于开发）
-
-1) 启动本地网络（会同时启动本地 Explorer）：
-
-```bash
-pnpm localnet:start
-```
-
-2) 部署合约到 localnet：
-
-```bash
-pnpm localnet:deploy
-```
-
-部署成功后会自动创建/更新：
-
-- `packages/frontend/.env.local`
-- 写入 `NEXT_PUBLIC_LOCALNET_CONTRACT_PACKAGE_ID=...`
-
-### Devnet / Testnet / Mainnet
-
-1) 确保对应网络环境已准备好：
-
-```bash
-pnpm devnet:start
-# 或：pnpm testnet:start
-# 或：pnpm mainnet:start
-```
-
-2) 部署合约：
-
-```bash
-pnpm devnet:deploy
-# 或：pnpm testnet:deploy
-# 或：pnpm mainnet:deploy
-```
-
-部署成功后会自动写入（在 `packages/frontend/.env.local`）：
-
-- `NEXT_PUBLIC_DEVNET_CONTRACT_PACKAGE_ID=...`
-- `NEXT_PUBLIC_TESTNET_CONTRACT_PACKAGE_ID=...`
-- `NEXT_PUBLIC_MAINNET_CONTRACT_PACKAGE_ID=...`
-
-注意：
-
-- Mainnet 没有水龙头，需要你自己的地址里有足够的 SUI 作为 gas。
-- 常用辅助命令：`pnpm devnet:address` / `pnpm testnet:address` / `pnpm mainnet:address` 以及 `pnpm devnet:links` / `pnpm testnet:links` / `pnpm mainnet:links`。
-- 如果遇到依赖校验/版本不匹配问题，可以使用 `*:deploy:no-dependency-check` 相关脚本（谨慎使用）。
-- `.env.local` 是本地文件（默认不会提交到 Git）。如果你在 CI/云端部署前端（例如 Vercel），也需要在对应环境里配置同名环境变量（Vercel Project Settings -> Environment Variables，或使用 `vercel env add ...`）。
-
-## Localnet 常用命令（补充）
-
-查看状态：
-
-```bash
-pnpm localnet:status
-```
-
-停止本地网络（和本地 Explorer）：
-
-```bash
-pnpm localnet:stop
-```
-
-给某个地址打水（localnet）：
-
-```bash
-pnpm localnet:faucet 0xYOURADDRESS
-```
-
-## 部署前端到 Vercel（从根目录）
-
-推荐用根目录脚本直接部署 `packages/frontend`：
-
-```bash
-pnpm vercel:prod
-```
-
-它现在等价于在根目录执行：
-
-```bash
-vercel --prod
-```
-
-根目录新增了 [`vercel.json`](/Users/apple/project/sui-nextjs-auth-template/vercel.json)，Vercel 会：
-
-- 构建 `packages/frontend` 这个 Next.js 应用
-- 以 Next.js 应用方式部署，而不是纯静态导出
-
-因此，不管是本地直接跑 `vercel --prod`，还是在 Vercel Dashboard 导入仓库，都建议把 **Root Directory** 保持在仓库根目录，让这份配置生效。
-
-## 数据库与 SQL 迁移
-
-前端现在已经支持通过 Next.js 服务端路由直接访问数据库。
-
-必需环境变量：
-
-- `DATABASE_URL=...`
-
-目前已经包含：
-
-- 钱包登录后自动同步用户：钱包连接成功时，前端会调用 [`/api/users`](/Users/apple/project/sui-nextjs-auth-template/packages/frontend/src/app/api/users/route.ts)，把用户 upsert 到数据库
-- SQL 迁移执行器：按顺序执行 `.sql` 文件，并记录到 `schema_migrations`
-- SQL 迁移生成器：可以连续生成 `00001_init.sql`、`00002_xxx.sql` 这种文件
-
-常用命令：
-
-```bash
-pnpm --filter frontend db:create-migration add_profiles
-pnpm --filter frontend db:migrate
-pnpm --filter frontend test
-```
-
-迁移文件目录：
-
-- [`packages/frontend/db/migrations`](/Users/apple/project/sui-nextjs-auth-template/packages/frontend/db/migrations)
-
-`00001_init.sql` 已经帮你生成好了，位置在：
-
-- [`packages/frontend/db/migrations/00001_init.sql`](/Users/apple/project/sui-nextjs-auth-template/packages/frontend/db/migrations/00001_init.sql)
-
-当前数据库行为：
-
-- 迁移会在现有 `users` 表上补齐钱包相关字段
-- 钱包连接后会按 `wallet_address` 创建或更新用户
-- 当前会写入 `wallet_address`、`wallet_name`、`chain`、`last_seen_at`
-
-## 其他命令
-
-根目录的 `package.json` 里封装了常用命令（例如 `build`、`lint`、各种网络的 deploy 等）；你也可以进入子项目目录分别运行它们自己的脚本。
+代码采用 [MIT](./LICENSE) 许可证，图形资源说明见 [LICENSE-GRAPHICS](./LICENSE-GRAPHICS)。

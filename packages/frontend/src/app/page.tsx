@@ -50,8 +50,8 @@ export default async function Home() {
     <>
       {/* <EnvConfigWarning /> */}
       <NetworkSupportChecker />
-      <div className="flex w-full max-w-6xl flex-col gap-6 px-3">
-        <section className="overflow-hidden rounded-[2.2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_30%),radial-gradient(circle_at_85%_15%,_rgba(56,189,248,0.14),_transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.92))] p-4 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(29,78,216,0.18),_transparent_20%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,0.88))] md:p-6">
+      <div className="w-full px-3">
+        <section className="w-full overflow-hidden rounded-[2.2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_30%),radial-gradient(circle_at_85%_15%,_rgba(56,189,248,0.14),_transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.92))] p-4 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(29,78,216,0.18),_transparent_20%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,0.88))] md:p-6">
           <div className="grid gap-4 xl:grid-cols-[1.18fr_0.82fr]">
             <div className="rounded-[1.9rem] border border-slate-200/70 bg-white/60 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-slate-800 dark:bg-slate-950/40 md:p-7">
               <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +229,9 @@ export default async function Home() {
             </div>
           </div>
         </section>
+      </div>
 
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-3">
         <ModuleCallCountsLive initialModules={moduleCallCounts} />
         <OverviewIndexerTables />
       </div>
