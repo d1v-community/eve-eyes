@@ -1,5 +1,5 @@
 import { normalizeWalletAddress } from '../users/repository.mjs'
-import { withMoveCallAction } from './move-call-action.mjs'
+import { withMoveCallAction, withMoveCallActions } from './move-call-action.mjs'
 
 function normalizeOptionalText(value) {
   if (typeof value !== 'string') {
@@ -215,7 +215,7 @@ export async function listMoveCallsByTxDigest(sql, txDigest, options = {}) {
     ORDER BY smc.call_index ASC NULLS LAST, smc.id ASC
   `
 
-  return rows.map((row) => {
+  const items = rows.map((row) => {
     const item = {
       id: String(row.id),
       txDigest: row.tx_digest,
@@ -232,15 +232,14 @@ export async function listMoveCallsByTxDigest(sql, txDigest, options = {}) {
       checkpoint: row.checkpoint,
     }
 
-    if (!options.includeActionSummary) {
-      return item
-    }
-
-    return withMoveCallAction({
-      ...item,
-      rawContent: row.raw_content,
-    })
+    return item
   })
+
+  if (!options.includeActionSummary) {
+    return items
+  }
+
+  return withMoveCallActions(items, rows[0]?.raw_content ?? null)
 }
 
 export async function listMoveCalls(sql, input) {

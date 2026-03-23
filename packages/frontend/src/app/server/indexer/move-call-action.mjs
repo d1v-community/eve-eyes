@@ -98,6 +98,35 @@ function getProgrammableTransaction(rawContent) {
     : null
 }
 
+function createActionContext(rawContent) {
+  const parsedRawContent = parseJsonValue(rawContent)
+  const programmableTransaction = getProgrammableTransaction(parsedRawContent)
+  const resolvedInputs = Array.isArray(programmableTransaction?.inputs)
+    ? programmableTransaction.inputs.map((input) => resolveInput(input))
+    : []
+  const events = Array.isArray(parsedRawContent?.events) ? parsedRawContent.events : []
+  const eventBySuffix = new Map()
+
+  for (const event of events) {
+    if (typeof event?.type !== 'string') {
+      continue
+    }
+
+    const suffix = event.type.split('::').pop()
+    if (!suffix || eventBySuffix.has(suffix)) {
+      continue
+    }
+
+    eventBySuffix.set(suffix, event)
+  }
+
+  return {
+    rawContent: parsedRawContent,
+    resolvedInputs,
+    eventBySuffix,
+  }
+}
+
 function resolveInput(input) {
   if (!input || typeof input !== 'object') {
     return null
@@ -150,16 +179,19 @@ function resolveArgument(argument, inputs) {
   return argument
 }
 
-function resolveArguments(rawCall, rawContent) {
+function resolveArguments(rawCall, rawContent, context = null) {
   const parsedRawCall = parseJsonValue(rawCall)
-  const programmableTransaction = getProgrammableTransaction(rawContent)
-  const inputs = programmableTransaction?.inputs ?? []
+  const inputs = context?.resolvedInputs ?? getProgrammableTransaction(rawContent)?.inputs ?? []
   const argumentsList = Array.isArray(parsedRawCall?.arguments) ? parsedRawCall.arguments : []
 
   return argumentsList.map((argument) => resolveArgument(argument, inputs))
 }
 
-function findEvent(rawContent, suffix) {
+function findEvent(rawContent, suffix, context = null) {
+  if (context?.eventBySuffix?.has(suffix)) {
+    return context.eventBySuffix.get(suffix) ?? null
+  }
+
   const events = Array.isArray(rawContent?.events) ? rawContent.events : []
 
   return events.find(
@@ -187,10 +219,10 @@ function getObjectId(argumentsList, index) {
   return null
 }
 
-function describeAnchor(moduleName, args, rawContent) {
+function describeAnchor(moduleName, args, rawContent, context = null) {
   if (moduleName === 'character') {
-    const createdEvent = findEvent(rawContent, 'CharacterCreatedEvent')?.parsedJson
-    const metadataEvent = findEvent(rawContent, 'MetadataChangedEvent')?.parsedJson
+    const createdEvent = findEvent(rawContent, 'CharacterCreatedEvent', context)?.parsedJson
+    const metadataEvent = findEvent(rawContent, 'MetadataChangedEvent', context)?.parsedJson
     const name = metadataEvent?.name ?? getPureValue(args, 6)
     const characterId = createdEvent?.character_id
     const gameCharacterId = createdEvent?.key?.item_id ?? getPureValue(args, 2)
@@ -289,8 +321,8 @@ function describeMetadataUpdate(moduleName, field, args) {
   )
 }
 
-function describeRevealLocation(moduleName, args, rawContent) {
-  const event = findEvent(rawContent, 'LocationRevealedEvent')?.parsedJson
+function describeRevealLocation(moduleName, args, rawContent, context = null) {
+  const event = findEvent(rawContent, 'LocationRevealedEvent', context)?.parsedJson
   const objectId = event?.assembly_id ?? getObjectId(args, 0)
   const solarsystem = event?.solarsystem ?? getPureValue(args, 3)
   const x = event?.x ?? getPureValue(args, 4)
@@ -457,8 +489,8 @@ function describeDepositByOwner(args) {
   )
 }
 
-function describeCreateCharacter(args, rawContent) {
-  return describeAnchor('character', args, rawContent)
+function describeCreateCharacter(args, rawContent, context = null) {
+  return describeAnchor('character', args, rawContent, context)
 }
 
 function describeBorrowOwnerCap(rawCall, args) {
@@ -531,8 +563,8 @@ function describeSetFuelEfficiency(args) {
   return buildAction(`An admin set the efficiency of fuel type_id ${fuelTypeId ?? 'unknown'} to ${efficiency ?? 'unknown'}.`)
 }
 
-function describeJump(rawContent, permitRequired) {
-  const event = findEvent(rawContent, 'JumpEvent')?.parsedJson
+function describeJump(rawContent, permitRequired, context = null) {
+  const event = findEvent(rawContent, 'JumpEvent', context)?.parsedJson
 
   if (event) {
     return buildAction(
@@ -552,8 +584,8 @@ function describeJump(rawContent, permitRequired) {
   )
 }
 
-function describeLinkGates(rawContent) {
-  const event = findEvent(rawContent, 'GateLinkedEvent')?.parsedJson
+function describeLinkGates(rawContent, context = null) {
+  const event = findEvent(rawContent, 'GateLinkedEvent', context)?.parsedJson
 
   if (event) {
     return buildAction(
@@ -568,8 +600,8 @@ function describeLinkGates(rawContent) {
   return buildAction('The user linked two gates.')
 }
 
-function describeUnlinkGates(rawContent) {
-  const event = findEvent(rawContent, 'GateUnlinkedEvent')?.parsedJson
+function describeUnlinkGates(rawContent, context = null) {
+  const event = findEvent(rawContent, 'GateUnlinkedEvent', context)?.parsedJson
 
   if (event) {
     return buildAction(
@@ -701,13 +733,15 @@ const GENERIC_DESCRIPTIONS = {
   authorize_extension: ({ moduleName, rawCall, args }) =>
     describeAuthorizeExtension(moduleName, rawCall, args),
   online: ({ moduleName, args }) => describeOnline(moduleName, args),
-  anchor: ({ moduleName, args, rawContent }) => describeAnchor(moduleName, args, rawContent),
+  anchor: ({ moduleName, args, rawContent, context }) =>
+    describeAnchor(moduleName, args, rawContent, context),
   update_metadata_url: ({ moduleName, args }) => describeMetadataUpdate(moduleName, 'URL', args),
   update_metadata_name: ({ moduleName, args }) => describeMetadataUpdate(moduleName, 'name', args),
   update_metadata_description: ({ moduleName, args }) =>
     describeMetadataUpdate(moduleName, 'description', args),
   game_item_to_chain_inventory: ({ args }) => describeGameItemToChainInventory(args),
-  create_character: ({ args, rawContent }) => describeCreateCharacter(args, rawContent),
+  create_character: ({ args, rawContent, context }) =>
+    describeCreateCharacter(args, rawContent, context),
   share_character: ({ moduleName }) => describeShare(moduleName),
   deposit_fuel: ({ args }) => describeDepositFuel(args),
   chain_item_to_game_inventory: ({ args }) => describeChainItemToGameInventory(args),
@@ -724,23 +758,23 @@ const GENERIC_DESCRIPTIONS = {
     describeUpdateEnergySource(moduleName, args),
   return_owner_cap_to_object: ({ rawCall, args }) =>
     describeReturnOwnerCapToObject(rawCall, args),
-  link_gates: ({ rawContent }) => describeLinkGates(rawContent),
+  link_gates: ({ rawContent, context }) => describeLinkGates(rawContent, context),
   offline_orphaned_storage_unit: ({ moduleName, args }) => describeOfflineOrphaned(moduleName, args),
   unanchor_orphan: ({ moduleName, args }) => describeUnanchorOrphan(moduleName, args),
   withdraw_fuel: ({ args }) => describeWithdrawFuel(args),
-  reveal_location: ({ moduleName, args, rawContent }) =>
-    describeRevealLocation(moduleName, args, rawContent),
+  reveal_location: ({ moduleName, args, rawContent, context }) =>
+    describeRevealLocation(moduleName, args, rawContent, context),
   set_energy_config: ({ args }) => describeSetEnergyConfig(args),
-  jump_with_permit: ({ rawContent }) => describeJump(rawContent, true),
+  jump_with_permit: ({ rawContent, context }) => describeJump(rawContent, true, context),
   offline_orphaned_turret: ({ moduleName, args }) => describeOfflineOrphaned(moduleName, args),
   withdraw_by_owner: ({ args }) => describeWithdrawByOwner(args),
   update_energy_source_connected_storage_unit: ({ moduleName, args }) =>
     describeUpdateEnergySource(moduleName, args),
-  unlink_gates: ({ rawContent }) => describeUnlinkGates(rawContent),
+  unlink_gates: ({ rawContent, context }) => describeUnlinkGates(rawContent, context),
   offline_orphaned_gate: ({ moduleName, args }) => describeOfflineOrphaned(moduleName, args),
   connect_assemblies: ({ args }) => describeConnectAssemblies(args),
   destroy_update_energy_sources: ({ rawContent }) => describeDestroyUpdateEnergySources(rawContent),
-  jump: ({ rawContent }) => describeJump(rawContent, false),
+  jump: ({ rawContent, context }) => describeJump(rawContent, false, context),
   set_fuel_efficiency: ({ args }) => describeSetFuelEfficiency(args),
   freeze_extension_config: ({ moduleName, args }) => describeFreezeExtension(moduleName, args),
   update_energy_source_connected_gate: ({ moduleName, args }) =>
@@ -760,10 +794,11 @@ export function describeMoveCallRichAction({
   functionName,
   rawCall,
   rawContent,
+  context = null,
 }) {
   const parsedRawCall = parseJsonValue(rawCall)
-  const parsedRawContent = parseJsonValue(rawContent)
-  const args = resolveArguments(parsedRawCall, parsedRawContent)
+  const parsedRawContent = context?.rawContent ?? parseJsonValue(rawContent)
+  const args = resolveArguments(parsedRawCall, parsedRawContent, context)
   const describe = GENERIC_DESCRIPTIONS[functionName]
 
   if (describe) {
@@ -772,6 +807,7 @@ export function describeMoveCallRichAction({
       functionName,
       rawCall: parsedRawCall,
       rawContent: parsedRawContent,
+      context,
       args,
     })
   }
@@ -789,13 +825,31 @@ export function withMoveCallAction(item) {
     ...rest
   } = item
   const action = describeMoveCallRichAction({
-    ...rest,
-    rawContent,
-  })
+      ...rest,
+      rawContent,
+    })
 
   return {
     ...rest,
     actionSummary: action.summary,
     actionEntities: action.entities,
   }
+}
+
+export function withMoveCallActions(items, rawContent) {
+  const context = createActionContext(rawContent)
+
+  return items.map((item) => {
+    const action = describeMoveCallRichAction({
+      ...item,
+      rawContent: context.rawContent,
+      context,
+    })
+
+    return {
+      ...item,
+      actionSummary: action.summary,
+      actionEntities: action.entities,
+    }
+  })
 }
