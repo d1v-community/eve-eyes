@@ -43,6 +43,9 @@ export async function GET(request: Request) {
       filters: parseMoveCallFilters(url.searchParams),
       pageSize: pagination.pageSize,
       offset: pagination.offset,
+      includeActionSummary:
+        url.searchParams.get('includeActionSummary') === '1' ||
+        url.searchParams.get('includeActionSummary') === 'true',
     })
 
     return json({

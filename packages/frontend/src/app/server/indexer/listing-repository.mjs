@@ -191,6 +191,58 @@ export async function getTransactionBlockByDigest(sql, digest) {
   }
 }
 
+export async function listMoveCallsByTxDigest(sql, txDigest, options = {}) {
+  const rows = await sql`
+    SELECT
+      smc.id,
+      smc.tx_digest,
+      smc.call_index,
+      smc.package_id,
+      smc.module_name,
+      smc.function_name,
+      smc.raw_call,
+      smc.transaction_time,
+      smc.created_at,
+      ${options.includeActionSummary ? sql`t.raw_content,` : sql``}
+      t.network,
+      t.sender_address,
+      t.status,
+      t.checkpoint
+    FROM suiscan_move_calls AS smc
+    LEFT JOIN transaction_blocks AS t
+      ON t.digest = smc.tx_digest
+    WHERE smc.tx_digest = ${txDigest}
+    ORDER BY smc.call_index ASC NULLS LAST, smc.id ASC
+  `
+
+  return rows.map((row) => {
+    const item = {
+      id: String(row.id),
+      txDigest: row.tx_digest,
+      callIndex: row.call_index,
+      packageId: row.package_id,
+      moduleName: row.module_name,
+      functionName: row.function_name,
+      rawCall: row.raw_call,
+      transactionTime: row.transaction_time,
+      createdAt: row.created_at,
+      network: row.network,
+      senderAddress: row.sender_address,
+      status: row.status,
+      checkpoint: row.checkpoint,
+    }
+
+    if (!options.includeActionSummary) {
+      return item
+    }
+
+    return withMoveCallAction({
+      ...item,
+      rawContent: row.raw_content,
+    })
+  })
+}
+
 export async function listMoveCalls(sql, input) {
   const conditions = []
   const params = []
@@ -239,7 +291,7 @@ export async function listMoveCalls(sql, input) {
         smc.raw_call,
         smc.transaction_time,
         smc.created_at,
-        t.raw_content,
+        ${input.includeActionSummary ? 't.raw_content,' : ''}
         t.network,
         t.sender_address,
         t.status,
@@ -266,8 +318,8 @@ export async function listMoveCalls(sql, input) {
   )
 
   return {
-    items: rows.map((row) =>
-      withMoveCallAction({
+    items: rows.map((row) => {
+      const item = {
         id: String(row.id),
         txDigest: row.tx_digest,
         callIndex: row.call_index,
@@ -275,15 +327,23 @@ export async function listMoveCalls(sql, input) {
         moduleName: row.module_name,
         functionName: row.function_name,
         rawCall: row.raw_call,
-        rawContent: row.raw_content,
         transactionTime: row.transaction_time,
         createdAt: row.created_at,
         network: row.network,
         senderAddress: row.sender_address,
         status: row.status,
         checkpoint: row.checkpoint,
+      }
+
+      if (!input.includeActionSummary) {
+        return item
+      }
+
+      return withMoveCallAction({
+        ...item,
+        rawContent: row.raw_content,
       })
-    ),
+    }),
     total: countRows[0]?.total ?? 0,
   }
 }
@@ -335,48 +395,4 @@ export async function getMoveCallByTxDigestAndCallIndex(sql, txDigest, callIndex
     status: row.status,
     checkpoint: row.checkpoint,
   })
-}
-
-export async function listMoveCallsByTxDigest(sql, txDigest) {
-  const rows = await sql`
-    SELECT
-      smc.id,
-      smc.tx_digest,
-      smc.call_index,
-      smc.package_id,
-      smc.module_name,
-      smc.function_name,
-      smc.raw_call,
-      smc.transaction_time,
-      smc.created_at,
-      t.raw_content,
-      t.network,
-      t.sender_address,
-      t.status,
-      t.checkpoint
-    FROM suiscan_move_calls AS smc
-    LEFT JOIN transaction_blocks AS t
-      ON t.digest = smc.tx_digest
-    WHERE smc.tx_digest = ${txDigest}
-    ORDER BY smc.call_index ASC NULLS LAST, smc.id ASC
-  `
-
-  return rows.map((row) =>
-    withMoveCallAction({
-      id: String(row.id),
-      txDigest: row.tx_digest,
-      callIndex: row.call_index,
-      packageId: row.package_id,
-      moduleName: row.module_name,
-      functionName: row.function_name,
-      rawCall: row.raw_call,
-      rawContent: row.raw_content,
-      transactionTime: row.transaction_time,
-      createdAt: row.created_at,
-      network: row.network,
-      senderAddress: row.sender_address,
-      status: row.status,
-      checkpoint: row.checkpoint,
-    })
-  )
 }

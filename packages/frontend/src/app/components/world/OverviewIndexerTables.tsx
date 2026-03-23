@@ -22,7 +22,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { notification } from '~~/helpers/notification'
-import { ParsedActionSummary, type ActionEntity } from './ParsedActionSummary'
+import type { ActionEntity } from './ParsedActionSummary'
 
 const FREE_PAGE_LIMIT = 3
 const UI_PAGE_LIMIT = 30
@@ -903,6 +903,7 @@ export default function OverviewIndexerTables() {
         authType={authType}
         refreshAuthStatus={refreshAuthStatus}
         getItemHref={(item) => `/indexer/transaction-blocks/${encodeURIComponent(item.digest)}`}
+        openItemInNewTab
         columns={[
           {
             key: 'digest',
@@ -941,7 +942,7 @@ export default function OverviewIndexerTables() {
       <ListingCard<MoveCallItem>
         title="Move Call"
         eyebrow="Execution detail stream"
-        description="Move execution targets, package references, sender, and time."
+        description="Move execution targets, package references, sender, and time. Open a row for full parsed action details."
         endpoint="/api/indexer/move-calls"
         authType={authType}
         refreshAuthStatus={refreshAuthStatus}
@@ -957,19 +958,6 @@ export default function OverviewIndexerTables() {
               <span className="font-data">{truncateValue(item.txDigest, 10, 8)}</span>
             ),
             copyValue: (item) => item.txDigest,
-          },
-          {
-            key: 'action',
-            label: 'Action',
-            mobileLabel: 'Action',
-            allowWrap: true,
-            render: (item) => (
-              <ParsedActionSummary
-                summary={item.actionSummary}
-                entities={item.actionEntities}
-                stopPropagation
-              />
-            ),
           },
           {
             key: 'rawCall',
