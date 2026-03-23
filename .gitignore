@@ -16,5 +16,6 @@ easy_deploy.sh
 packages/frontend/.env
 packages/indexer/.env
 .pnpm-store
+world-contracts
 # Arweave
 arweave-keyfile*

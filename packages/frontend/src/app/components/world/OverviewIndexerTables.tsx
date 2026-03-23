@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@radix-ui/themes'
+import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -21,6 +22,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { notification } from '~~/helpers/notification'
+import { ParsedActionSummary, type ActionEntity } from './ParsedActionSummary'
 
 const FREE_PAGE_LIMIT = 3
 const UI_PAGE_LIMIT = 30
@@ -56,6 +58,8 @@ type MoveCallItem = {
   senderAddress: string | null
   status: string | null
   transactionTime: string | null
+  actionSummary?: string | null
+  actionEntities?: ActionEntity[] | null
 }
 
 type ListingResponse<TItem> = {
@@ -84,6 +88,8 @@ type ListingCardProps<TItem> = {
   columns: Column<TItem>[]
   authType: AuthType
   refreshAuthStatus: () => Promise<AuthType>
+  getItemHref?: (item: TItem) => string | null
+  openItemInNewTab?: boolean
 }
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -425,7 +431,10 @@ function ListingCard<TItem>({
   columns,
   authType,
   refreshAuthStatus,
+  getItemHref,
+  openItemInNewTab = false,
 }: ListingCardProps<TItem>) {
+  const router = useRouter()
   const [items, setItems] = useState<TItem[]>([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState<PaginationPayload | null>(null)
@@ -677,45 +686,82 @@ function ListingCard<TItem>({
               {isLoading && !isPageTransitioning ? (
                 <LoadingRows columnCount={columns.length} />
               ) : items.length > 0 ? (
-                items.map((item, rowIndex) => (
-                  <tr
-                    key={(item as { id?: string }).id ?? `${title}-${rowIndex}`}
-                    className="transition-colors duration-150 hover:bg-sky-50/70 dark:hover:bg-slate-900/80"
-                  >
-                    {columns.map((column) => (
-                      <td
-                        key={column.key}
-                        className="h-[72px] border-b border-slate-200/70 px-4 py-4 align-middle text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
-                      >
-                        <div className="group flex items-center gap-2">
-                          <span
-                            className={`font-body block min-w-0 ${column.allowWrap
-                              ? 'max-w-[14rem] truncate'
-                              : 'max-w-[12rem] truncate whitespace-nowrap'
-                              }`}
-                          >
-                            {column.render(item)}
-                          </span>
-                          {column.copyValue?.(item) ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const value = column.copyValue?.(item)
-                                if (!value) return
-                                void navigator.clipboard.writeText(value)
-                                notification.success('Copied to clipboard')
-                              }}
-                              className="opacity-0 transition group-hover:opacity-100"
-                              aria-label={`Copy ${column.label}`}
+                items.map((item, rowIndex) => {
+                  const href = getItemHref?.(item) ?? null
+
+                  return (
+                    <tr
+                      key={(item as { id?: string }).id ?? `${title}-${rowIndex}`}
+                      className={`transition-colors duration-150 hover:bg-sky-50/70 dark:hover:bg-slate-900/80 ${href ? 'cursor-pointer' : ''}`}
+                      onClick={() => {
+                        if (!href) {
+                          return
+                        }
+
+                        if (openItemInNewTab) {
+                          window.open(href, '_blank', 'noopener,noreferrer')
+                          return
+                        }
+
+                        router.push(href)
+                      }}
+                      onKeyDown={(event) => {
+                        if (!href) {
+                          return
+                        }
+
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                          return
+                        }
+
+                        event.preventDefault()
+
+                        if (openItemInNewTab) {
+                          window.open(href, '_blank', 'noopener,noreferrer')
+                          return
+                        }
+
+                        router.push(href)
+                      }}
+                      tabIndex={href ? 0 : undefined}
+                      role={href ? 'link' : undefined}
+                    >
+                      {columns.map((column) => (
+                        <td
+                          key={column.key}
+                          className="h-[72px] border-b border-slate-200/70 px-4 py-4 align-middle text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                        >
+                          <div className="group flex items-center gap-2">
+                            <span
+                              className={`font-body block min-w-0 ${column.allowWrap
+                                ? 'max-w-[14rem] truncate'
+                                : 'max-w-[12rem] truncate whitespace-nowrap'
+                                }`}
                             >
-                              <Copy className="mt-0.5 h-3.5 w-3.5 text-slate-400 hover:text-sky-600 dark:text-slate-500 dark:hover:text-sky-300" />
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                              {column.render(item)}
+                            </span>
+                            {column.copyValue?.(item) ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  const value = column.copyValue?.(item)
+                                  if (!value) return
+                                  void navigator.clipboard.writeText(value)
+                                  notification.success('Copied to clipboard')
+                                }}
+                                className="opacity-0 transition group-hover:opacity-100"
+                                aria-label={`Copy ${column.label}`}
+                              >
+                                <Copy className="mt-0.5 h-3.5 w-3.5 text-slate-400 hover:text-sky-600 dark:text-slate-500 dark:hover:text-sky-300" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })
               ) : (
                 <tr>
                   <td
@@ -856,6 +902,7 @@ export default function OverviewIndexerTables() {
         endpoint="/api/indexer/transaction-blocks"
         authType={authType}
         refreshAuthStatus={refreshAuthStatus}
+        getItemHref={(item) => `/indexer/transaction-blocks/${encodeURIComponent(item.digest)}`}
         columns={[
           {
             key: 'digest',
@@ -898,6 +945,10 @@ export default function OverviewIndexerTables() {
         endpoint="/api/indexer/move-calls"
         authType={authType}
         refreshAuthStatus={refreshAuthStatus}
+        getItemHref={(item) =>
+          `/indexer/move-calls/${encodeURIComponent(item.txDigest)}/${encodeURIComponent(String(item.callIndex ?? 0))}`
+        }
+        openItemInNewTab
         columns={[
           {
             key: 'txDigest',
@@ -906,6 +957,19 @@ export default function OverviewIndexerTables() {
               <span className="font-data">{truncateValue(item.txDigest, 10, 8)}</span>
             ),
             copyValue: (item) => item.txDigest,
+          },
+          {
+            key: 'action',
+            label: 'Action',
+            mobileLabel: 'Action',
+            allowWrap: true,
+            render: (item) => (
+              <ParsedActionSummary
+                summary={item.actionSummary}
+                entities={item.actionEntities}
+                stopPropagation
+              />
+            ),
           },
           {
             key: 'rawCall',

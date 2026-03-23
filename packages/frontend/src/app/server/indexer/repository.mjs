@@ -45,6 +45,15 @@ function isMissingRelationError(error) {
   )
 }
 
+function isTransientConnectionError(error) {
+  return (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'ECONNRESET'
+  )
+}
+
 export async function getModuleCallCounts(sql) {
   let rows
 
@@ -60,6 +69,13 @@ export async function getModuleCallCounts(sql) {
     `
   } catch (error) {
     if (isMissingRelationError(error)) {
+      return buildEmptyModuleCallCounts()
+    }
+
+    if (isTransientConnectionError(error)) {
+      console.warn(
+        'Failed to query suiscan_move_calls because the database connection was reset; returning empty module counts.'
+      )
       return buildEmptyModuleCallCounts()
     }
 

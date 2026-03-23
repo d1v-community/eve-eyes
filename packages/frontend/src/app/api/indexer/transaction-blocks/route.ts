@@ -9,9 +9,16 @@ import { parsePagination, requirePageAccess } from '~~/server/pagination.mjs'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 function json(data: unknown, init?: ResponseInit) {
-  return Response.json(data, init)
+  const headers = new Headers(init?.headers)
+  headers.set('Cache-Control', 'no-store, max-age=0')
+
+  return Response.json(data, {
+    ...init,
+    headers,
+  })
 }
 
 function isBadRequest(error: unknown) {

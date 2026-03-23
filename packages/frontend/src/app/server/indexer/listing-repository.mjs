@@ -1,4 +1,5 @@
 import { normalizeWalletAddress } from '../users/repository.mjs'
+import { withMoveCallAction } from './move-call-action.mjs'
 
 function normalizeOptionalText(value) {
   if (typeof value !== 'string') {
@@ -138,6 +139,58 @@ export async function listTransactionBlocks(sql, input) {
   }
 }
 
+export async function getTransactionBlockByDigest(sql, digest) {
+  const rows = await sql`
+    SELECT
+      id,
+      digest,
+      network,
+      checkpoint,
+      sender_address,
+      transaction_kind,
+      status,
+      error_message,
+      executed_at,
+      transaction_time,
+      raw_content,
+      effects,
+      events,
+      object_changes,
+      balance_changes,
+      created_at,
+      updated_at
+    FROM transaction_blocks
+    WHERE digest = ${digest}
+    LIMIT 1
+  `
+
+  const row = rows[0]
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    id: String(row.id),
+    digest: row.digest,
+    network: row.network,
+    checkpoint: row.checkpoint,
+    senderAddress: row.sender_address,
+    transactionKind: row.transaction_kind,
+    status: row.status,
+    errorMessage: row.error_message,
+    executedAt: row.executed_at,
+    transactionTime: row.transaction_time,
+    rawContent: row.raw_content,
+    effects: row.effects,
+    events: row.events,
+    objectChanges: row.object_changes,
+    balanceChanges: row.balance_changes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export async function listMoveCalls(sql, input) {
   const conditions = []
   const params = []
@@ -186,6 +239,7 @@ export async function listMoveCalls(sql, input) {
         smc.raw_call,
         smc.transaction_time,
         smc.created_at,
+        t.raw_content,
         t.network,
         t.sender_address,
         t.status,
@@ -212,7 +266,103 @@ export async function listMoveCalls(sql, input) {
   )
 
   return {
-    items: rows.map((row) => ({
+    items: rows.map((row) =>
+      withMoveCallAction({
+        id: String(row.id),
+        txDigest: row.tx_digest,
+        callIndex: row.call_index,
+        packageId: row.package_id,
+        moduleName: row.module_name,
+        functionName: row.function_name,
+        rawCall: row.raw_call,
+        rawContent: row.raw_content,
+        transactionTime: row.transaction_time,
+        createdAt: row.created_at,
+        network: row.network,
+        senderAddress: row.sender_address,
+        status: row.status,
+        checkpoint: row.checkpoint,
+      })
+    ),
+    total: countRows[0]?.total ?? 0,
+  }
+}
+
+export async function getMoveCallByTxDigestAndCallIndex(sql, txDigest, callIndex) {
+  const rows = await sql`
+    SELECT
+      smc.id,
+      smc.tx_digest,
+      smc.call_index,
+      smc.package_id,
+      smc.module_name,
+      smc.function_name,
+      smc.raw_call,
+      smc.transaction_time,
+      smc.created_at,
+      t.raw_content,
+      t.network,
+      t.sender_address,
+      t.status,
+      t.checkpoint
+    FROM suiscan_move_calls AS smc
+    LEFT JOIN transaction_blocks AS t
+      ON t.digest = smc.tx_digest
+    WHERE smc.tx_digest = ${txDigest}
+      AND smc.call_index = ${callIndex}
+    LIMIT 1
+  `
+
+  const row = rows[0]
+
+  if (!row) {
+    return null
+  }
+
+  return withMoveCallAction({
+    id: String(row.id),
+    txDigest: row.tx_digest,
+    callIndex: row.call_index,
+    packageId: row.package_id,
+    moduleName: row.module_name,
+    functionName: row.function_name,
+    rawCall: row.raw_call,
+    rawContent: row.raw_content,
+    transactionTime: row.transaction_time,
+    createdAt: row.created_at,
+    network: row.network,
+    senderAddress: row.sender_address,
+    status: row.status,
+    checkpoint: row.checkpoint,
+  })
+}
+
+export async function listMoveCallsByTxDigest(sql, txDigest) {
+  const rows = await sql`
+    SELECT
+      smc.id,
+      smc.tx_digest,
+      smc.call_index,
+      smc.package_id,
+      smc.module_name,
+      smc.function_name,
+      smc.raw_call,
+      smc.transaction_time,
+      smc.created_at,
+      t.raw_content,
+      t.network,
+      t.sender_address,
+      t.status,
+      t.checkpoint
+    FROM suiscan_move_calls AS smc
+    LEFT JOIN transaction_blocks AS t
+      ON t.digest = smc.tx_digest
+    WHERE smc.tx_digest = ${txDigest}
+    ORDER BY smc.call_index ASC NULLS LAST, smc.id ASC
+  `
+
+  return rows.map((row) =>
+    withMoveCallAction({
       id: String(row.id),
       txDigest: row.tx_digest,
       callIndex: row.call_index,
@@ -220,13 +370,13 @@ export async function listMoveCalls(sql, input) {
       moduleName: row.module_name,
       functionName: row.function_name,
       rawCall: row.raw_call,
+      rawContent: row.raw_content,
       transactionTime: row.transaction_time,
       createdAt: row.created_at,
       network: row.network,
       senderAddress: row.sender_address,
       status: row.status,
       checkpoint: row.checkpoint,
-    })),
-    total: countRows[0]?.total ?? 0,
-  }
+    })
+  )
 }
