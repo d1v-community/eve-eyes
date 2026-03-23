@@ -247,13 +247,13 @@ export default function AccessLoginPanel() {
       </div>
 
       {errorMessage ? (
-        <div className="mt-4 rounded-[1.4rem] border border-red-300/70 bg-[linear-gradient(135deg,rgba(254,242,242,0.96),rgba(254,226,226,0.92))] px-4 py-3 text-sm font-medium text-red-800 shadow-[0_14px_30px_rgba(239,68,68,0.08)] dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+        <div className="mt-4 rounded-[1.4rem] border border-red-300/70 bg-[linear-gradient(135deg,rgba(254,242,242,0.96),rgba(254,226,226,0.92))] px-4 py-3 text-sm font-medium text-red-800 shadow-[0_14px_30px_rgba(239,68,68,0.08)] dark:border-red-900/80 dark:bg-[linear-gradient(135deg,rgba(69,10,10,0.92),rgba(44,9,18,0.88))] dark:text-red-100 dark:shadow-[0_18px_36px_rgba(127,29,29,0.22)]">
           {errorMessage}
         </div>
       ) : null}
 
       {successMessage ? (
-        <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.96),rgba(209,250,229,0.92))] px-4 py-3 text-sm font-medium text-emerald-800 shadow-[0_14px_30px_rgba(16,185,129,0.08)] dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="mt-4 rounded-[1.4rem] border border-emerald-300/70 bg-[linear-gradient(135deg,rgba(236,253,245,0.96),rgba(209,250,229,0.92))] px-4 py-3 text-sm font-medium text-emerald-800 shadow-[0_14px_30px_rgba(16,185,129,0.08)] dark:border-emerald-900/80 dark:bg-[linear-gradient(135deg,rgba(6,44,30,0.92),rgba(6,30,34,0.88))] dark:text-emerald-100 dark:shadow-[0_18px_36px_rgba(6,78,59,0.2)]">
           {successMessage}
         </div>
       ) : null}

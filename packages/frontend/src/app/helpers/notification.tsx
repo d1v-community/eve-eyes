@@ -1,31 +1,26 @@
 import { Link } from '@radix-ui/themes'
-import toast, { Renderable, type Toast } from 'react-hot-toast'
-import Notification, { type NotificationTone } from '../components/Notification'
-
-function renderNotification(type: NotificationTone, message: Renderable) {
-  return (toastInstance: Toast) => (
-    <Notification toastInstance={toastInstance} type={type}>
-      {message}
-    </Notification>
-  )
-}
+import { ReactNode } from 'react'
+import type { NotificationTone } from '../components/Notification'
+import { showToast } from './toast-store'
 
 function showNotification(
   type: NotificationTone,
-  message: Renderable,
+  message: ReactNode,
   options?: {
     id?: string
     duration?: number
   }
 ) {
-  return toast.custom(renderNotification(type, message), {
+  return showToast({
+    type,
+    message,
     id: options?.id,
     duration:
       options?.duration ?? (type === 'loading' ? Number.POSITIVE_INFINITY : 4000),
   })
 }
 
-const reportLoading = (message: Renderable) => {
+const reportLoading = (message: ReactNode) => {
   return showNotification('loading', message)
 }
 
@@ -46,7 +41,7 @@ const reportError = (
   })
 }
 
-const reportSuccess = (message: Renderable, id?: string) => {
+const reportSuccess = (message: ReactNode, id?: string) => {
   return showNotification('success', message, {
     id: id ?? Date.now().toString(),
     duration: 4000,

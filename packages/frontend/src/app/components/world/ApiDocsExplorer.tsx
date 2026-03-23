@@ -355,6 +355,18 @@ function getAuthLabel(auth: ApiDoc['auth']) {
   }
 }
 
+function getGroupButtonClassName(active: boolean) {
+  return active
+    ? 'border-sky-300/80 bg-[linear-gradient(135deg,rgba(224,242,254,0.98),rgba(186,230,253,0.92))] text-slate-950 shadow-[0_18px_38px_rgba(14,165,233,0.16)] ring-1 ring-white/80 dark:border-sky-700/80 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.88),rgba(15,23,42,0.96))] dark:text-white dark:shadow-[0_20px_40px_rgba(14,165,233,0.14)] dark:ring-sky-400/10'
+    : 'border-transparent bg-white/65 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-slate-200/80 hover:bg-white/95 hover:text-slate-950 dark:bg-slate-950/25 dark:text-slate-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:border-slate-700/80 dark:hover:bg-slate-950/60 dark:hover:text-white'
+}
+
+function getDocButtonClassName(active: boolean) {
+  return active
+    ? 'border-sky-400/90 bg-[linear-gradient(135deg,rgba(2,132,199,0.96),rgba(14,165,233,0.92))] text-white shadow-[0_16px_34px_rgba(14,165,233,0.22)] ring-1 ring-sky-200/60 dark:border-sky-300/80 dark:bg-[linear-gradient(135deg,rgba(8,47,73,0.98),rgba(14,116,144,0.9))] dark:text-sky-50 dark:shadow-[0_18px_38px_rgba(14,165,233,0.16)] dark:ring-sky-300/10'
+    : 'border-slate-200/80 bg-white/90 text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 dark:border-slate-800/90 dark:bg-slate-950/55 dark:text-slate-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:hover:border-slate-700 dark:hover:bg-slate-950/90 dark:hover:text-white'
+}
+
 export default function ApiDocsExplorer() {
   const [activeGroup, setActiveGroup] = useState<ApiDoc['group']>('indexer')
   const initialDoc = useMemo(
@@ -407,16 +419,23 @@ export default function ApiDocsExplorer() {
                       setActiveDocId(nextDoc.id)
                     }
                   }}
-                  className={`w-full rounded-[1.2rem] border px-4 py-3 text-left transition ${isActive
-                    ? 'border-sky-300/80 bg-sky-50/90 shadow-[0_12px_28px_rgba(14,165,233,0.12)] dark:border-sky-900/80 dark:bg-sky-950/35'
-                    : 'border-transparent bg-white/60 hover:border-slate-200/80 hover:bg-white/90 dark:bg-slate-950/30 dark:hover:border-slate-800 dark:hover:bg-slate-950/60'
-                    }`}
+                  className={`group w-full rounded-[1.25rem] border px-4 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-sky-300/70 dark:focus-visible:ring-offset-slate-950 ${getGroupButtonClassName(isActive)}`}
                 >
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                    <Icon className="h-4 w-4" />
-                    {group.label}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-sky-700 dark:text-sky-200' : 'text-slate-500 dark:text-slate-400'}`} />
+                      <span className="truncate">{group.label}</span>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${isActive
+                        ? 'bg-white/80 text-sky-900 dark:bg-white/10 dark:text-sky-100'
+                        : 'bg-slate-100/90 text-slate-500 dark:bg-slate-900/80 dark:text-slate-400'
+                        }`}
+                    >
+                      {API_DOCS.filter((doc) => doc.group === group.id).length}
+                    </span>
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  <div className={`mt-1 text-xs leading-5 ${isActive ? 'text-slate-700 dark:text-sky-100/90' : 'text-slate-600 dark:text-slate-300'}`}>
                     {group.description}
                   </div>
                 </button>
@@ -434,10 +453,7 @@ export default function ApiDocsExplorer() {
                   key={doc.id}
                   type="button"
                   onClick={() => setActiveDocId(doc.id)}
-                  className={`w-full rounded-[1rem] border px-3 py-2 text-left transition ${activeDoc?.id === doc.id
-                    ? 'border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.18)] dark:border-sky-300 dark:bg-sky-50 dark:text-slate-950'
-                    : 'border-slate-200/80 bg-white/90 text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-950'
-                    }`}
+                  className={`group w-full rounded-[1.05rem] border px-3 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-sky-300/70 dark:focus-visible:ring-offset-slate-950 ${getDocButtonClassName(activeDoc?.id === doc.id)}`}
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -445,9 +461,19 @@ export default function ApiDocsExplorer() {
                     >
                       {doc.method}
                     </span>
-                    <span className="min-w-0 truncate text-sm font-semibold">{doc.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{doc.title}</span>
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full transition ${activeDoc?.id === doc.id
+                        ? 'bg-white shadow-[0_0_0_4px_rgba(255,255,255,0.18)] dark:bg-sky-200 dark:shadow-[0_0_0_4px_rgba(125,211,252,0.12)]'
+                        : 'bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-700 dark:group-hover:bg-slate-500'
+                        }`}
+                    />
                   </div>
-                  <div className="mt-1 truncate font-mono text-[11px] opacity-80">{doc.path}</div>
+                  <div
+                    className={`mt-1 truncate font-mono text-[11px] ${activeDoc?.id === doc.id ? 'text-white/80 dark:text-sky-100/80' : 'text-slate-500 dark:text-slate-400'}`}
+                  >
+                    {doc.path}
+                  </div>
                 </button>
               ))}
             </div>
