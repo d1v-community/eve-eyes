@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { startTransition, useCallback, useEffect, useState } from 'react'
 import { notification } from '../../helpers/notification'
+import ApiDocsExplorer from './ApiDocsExplorer'
 
 type AuthUser = {
   id: string
@@ -43,26 +44,6 @@ const AUTH_HEADERS = [
   '`Authorization: Bearer <jwt>` for browser sessions and signed wallet logins.',
   '`Authorization: ApiKey <api-key>` for machine-to-machine access.',
   '`x-api-key: <api-key>` as an alternative API key header.',
-]
-
-const TRANSACTION_BLOCK_FIELDS = [
-  'network',
-  'senderAddress',
-  'status',
-  'digest',
-  'transactionKind',
-  'checkpoint',
-]
-
-const MOVE_CALL_FIELDS = [
-  'network',
-  'senderAddress',
-  'status',
-  'txDigest',
-  'packageId',
-  'moduleName',
-  'functionName',
-  'callIndex',
 ]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -260,7 +241,8 @@ export default function JumpsAccessPanel() {
   const activeApiKeyCount = apiKeys.filter((item) => item.revokedAt == null).length
 
   return (
-    <section id="api-access" className="grid gap-6 scroll-mt-32 xl:grid-cols-[0.84fr_1.16fr]">
+    <section id="api-access" className="grid gap-6 scroll-mt-32">
+      <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr]">
       <article className="rounded-[2rem] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/80 px-3 py-1.5 text-xs uppercase tracking-[0.28em] text-sky-700 shadow-[0_10px_24px_rgba(14,165,233,0.08)] dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
@@ -398,71 +380,6 @@ export default function JumpsAccessPanel() {
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          <div className="rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-              Transaction Blocks
-            </div>
-            <div className="mt-2 break-all rounded-[1rem] border border-slate-200/80 bg-white/90 px-4 py-3 font-mono text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100">
-              GET /api/indexer/transaction-blocks
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Supports pagination plus exact-match field filters for indexed block records.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {TRANSACTION_BLOCK_FIELDS.map((field) => (
-                <span
-                  key={field}
-                  className="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
-                >
-                  {field}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-              Move Calls
-            </div>
-            <div className="mt-2 break-all rounded-[1rem] border border-slate-200/80 bg-white/90 px-4 py-3 font-mono text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100">
-              GET /api/indexer/move-calls
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Returns indexed move call rows, including raw call payloads for downstream inspection.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {MOVE_CALL_FIELDS.map((field) => (
-                <span
-                  key={field}
-                  className="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
-                >
-                  {field}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.97),rgba(241,245,249,0.94))] p-4 shadow-[0_16px_34px_rgba(15,23,42,0.05)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.97),rgba(8,16,30,0.94))]">
-          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Examples
-          </div>
-          <pre className="mt-3 overflow-x-auto rounded-[1.2rem] border border-slate-200/80 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-100 dark:border-slate-800">
-            {`curl '/api/indexer/transaction-blocks?page=1&pageSize=20&status=success&checkpoint=42'
-
-curl '/api/indexer/transaction-blocks?page=4&pageSize=20&senderAddress=0xabc' \\
-  -H 'Authorization: ApiKey <api-key>'
-
-curl '/api/indexer/move-calls?page=4&pageSize=20&packageId=0x2&moduleName=world&functionName=jump&callIndex=0' \\
-  -H 'x-api-key: <api-key>'`}
-          </pre>
-          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Pages 1-3 are public. Page 4 and above require JWT or API key auth. Query params
-            are exact-match filters, so scripts can combine them directly.
-          </p>
         </div>
       </article>
 
@@ -611,6 +528,9 @@ curl '/api/indexer/move-calls?page=4&pageSize=20&packageId=0x2&moduleName=world&
           )}
         </div>
       </article>
+      </div>
+
+      <ApiDocsExplorer />
     </section>
   )
 }
