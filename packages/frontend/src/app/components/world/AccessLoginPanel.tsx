@@ -7,7 +7,7 @@ import {
   useSignPersonalMessage,
 } from '@mysten/dapp-kit'
 import { Button } from '@radix-ui/themes'
-import { KeyRound, LoaderCircle, ShieldCheck, Wallet } from 'lucide-react'
+import { Bot, KeyRound, LoaderCircle, ShieldCheck, Wallet } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { notification } from '../../helpers/notification'
 import JumpsAccessPanel from './JumpsAccessPanel'
@@ -35,7 +35,9 @@ async function parseJsonResponse(response: Response) {
 
   if (!response.ok) {
     throw new Error(
-      typeof payload?.error === 'string' ? payload.error : `Request failed: ${response.status}`
+      typeof payload?.error === 'string'
+        ? payload.error
+        : `Request failed: ${response.status}`
     )
   }
 
@@ -82,7 +84,9 @@ export default function AccessLoginPanel() {
 
   useEffect(() => {
     loadSession().catch((error) => {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load session')
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to load session'
+      )
     })
   }, [loadSession])
 
@@ -96,7 +100,9 @@ export default function AccessLoginPanel() {
     setErrorMessage(null)
     setSuccessMessage(null)
     const loginToastId = notification.loading(
-      isConnected ? 'Sign the message in your wallet to continue.' : 'Connect your wallet.'
+      isConnected
+        ? 'Sign the message in your wallet to continue.'
+        : 'Connect your wallet.'
     )
 
     try {
@@ -131,18 +137,29 @@ export default function AccessLoginPanel() {
       await parseJsonResponse(loginResponse)
       await loadSession()
       setSuccessMessage('Wallet authenticated. API Access page is unlocked.')
-      notification.success('Signature verified. API key access is unlocked.', loginToastId)
+      notification.success(
+        'Signature verified. API key access is unlocked.',
+        loginToastId
+      )
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to sign in'
+      const message =
+        error instanceof Error ? error.message : 'Failed to sign in'
       setErrorMessage(message)
-      notification.error(error instanceof Error ? error : null, message, loginToastId)
+      notification.error(
+        error instanceof Error ? error : null,
+        message,
+        loginToastId
+      )
     } finally {
       setIsSubmitting(false)
     }
   }
 
   function handleProtectedAccessClick() {
-    notification.error(null, 'Please log in and complete the wallet signature first.')
+    notification.error(
+      null,
+      'Please log in and complete the wallet signature first.'
+    )
   }
 
   if (user) {
@@ -171,7 +188,7 @@ export default function AccessLoginPanel() {
         Sign In
       </div>
 
-      <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white md:text-4xl">
+      <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-slate-950 md:text-4xl dark:text-white">
         Unlock API access with your wallet.
       </h2>
       <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -187,7 +204,9 @@ export default function AccessLoginPanel() {
             {isLoading ? 'Loading' : user ? 'Authenticated' : 'Locked'}
           </div>
           <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {user ? 'JWT cookie is active in this browser.' : 'No API management without login.'}
+            {user
+              ? 'JWT cookie is active in this browser.'
+              : 'No API management without login.'}
           </div>
         </div>
 
@@ -196,7 +215,9 @@ export default function AccessLoginPanel() {
             Wallet
           </div>
           <div className="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
-            {currentAccount?.address ? truncateValue(currentAccount.address) : 'Not connected'}
+            {currentAccount?.address
+              ? truncateValue(currentAccount.address)
+              : 'Not connected'}
           </div>
           <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {currentWallet?.name ?? 'Use the wallet button in the header.'}
@@ -220,7 +241,7 @@ export default function AccessLoginPanel() {
         {!isConnected ? (
           <ConnectModal
             trigger={
-              <Button className="cursor-pointer !h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60">
+              <Button className="!h-12 cursor-pointer !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60">
                 {ctaIcon}
                 {ctaLabel}
               </Button>
@@ -230,7 +251,7 @@ export default function AccessLoginPanel() {
           <Button
             onClick={handleLogin}
             disabled={isSubmitting}
-            className="cursor-pointer !h-12 !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60"
+            className="!h-12 cursor-pointer !rounded-full !bg-[linear-gradient(135deg,#020617,#0ea5e9)] !px-6 !font-semibold !text-white !shadow-[0_18px_42px_rgba(14,165,233,0.28)] transition hover:!translate-y-[-1px] hover:!shadow-[0_24px_48px_rgba(14,165,233,0.34)] disabled:!translate-y-0 disabled:!opacity-60"
           >
             {ctaIcon}
             {ctaLabel}
@@ -243,6 +264,14 @@ export default function AccessLoginPanel() {
         >
           <ShieldCheck className="h-4 w-4" />
           Open API Access
+        </button>
+        <button
+          type="button"
+          onClick={handleProtectedAccessClick}
+          className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-full border border-slate-300/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(241,245,249,0.94))] px-6 text-sm font-semibold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_18px_40px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_22px_44px_rgba(15,23,42,0.12)] dark:border-slate-700/80 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.82),rgba(30,41,59,0.76))] dark:text-slate-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_22px_44px_rgba(2,6,23,0.18)] dark:hover:border-slate-500 dark:hover:bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(30,41,59,0.86))]"
+        >
+          <Bot className="h-4 w-4" />
+          Agent Docs
         </button>
       </div>
 
