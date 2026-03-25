@@ -14,7 +14,9 @@
     "db:sync:suiscan-rpc": "node ./scripts/sync-suiscan-rpc.mjs",
     "db:watch:suiscan-rpc": "node ./scripts/watch-sync-suiscan-rpc.mjs",
     "db:sync:transaction-block-move-calls": "node ./scripts/sync-transaction-block-move-calls.mjs",
-    "db:watch:transaction-block-move-calls": "node ./scripts/watch-transaction-block-move-calls.mjs"
+    "db:watch:transaction-block-move-calls": "node ./scripts/watch-transaction-block-move-calls.mjs",
+    "db:sync:derived-records": "node ./scripts/sync-transaction-block-derived-records.mjs",
+    "db:watch:derived-records": "node ./scripts/watch-transaction-block-derived-records.mjs"
   },
   "dependencies": {
     "@mysten/sui": "^1.45.2",

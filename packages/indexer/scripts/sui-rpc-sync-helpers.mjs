@@ -107,6 +107,28 @@ export function createRpcPool() {
 
       throw lastError
     },
+    async tryGetPastObject(input) {
+      let lastError
+
+      for (let attempt = 0; attempt < clients.length; attempt += 1) {
+        const currentIndex = nextClientIndex % clients.length
+        nextClientIndex += 1
+        const current = clients[currentIndex]
+
+        try {
+          const result = await current.client.tryGetPastObject(input)
+
+          return {
+            result,
+            rpcUrl: current.url,
+          }
+        } catch (error) {
+          lastError = error
+        }
+      }
+
+      throw lastError
+    },
   }
 }
 

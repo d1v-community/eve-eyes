@@ -82,6 +82,12 @@ async function main() {
         './scripts/watch-transaction-block-move-calls.mjs',
       ]),
     },
+    {
+      name: 'watch-transaction-block-derived-records',
+      child: startProcess('watch-transaction-block-derived-records', [
+        './scripts/watch-transaction-block-derived-records.mjs',
+      ]),
+    },
   ]
 
   let shuttingDown = false
