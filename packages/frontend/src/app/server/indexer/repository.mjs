@@ -108,3 +108,51 @@ export async function getModuleCallCounts(sql) {
     return left.moduleName.localeCompare(right.moduleName)
   })
 }
+
+export async function listBuildingLeaderboard(sql, input = {}) {
+  const limit = Number.isInteger(input.limit) && input.limit > 0 ? input.limit : 50
+  const moduleName =
+    typeof input.moduleName === 'string' && input.moduleName.trim().length > 0
+      ? input.moduleName.trim()
+      : null
+
+  const rows = moduleName
+    ? await sql`
+        SELECT
+          ci.character_address AS wallet_address,
+          COUNT(*)::int AS building_count,
+          MAX(bi.last_seen_at) AS last_seen_at
+        FROM building_instances AS bi
+        JOIN character_identity AS ci
+          ON ci.tenant = bi.tenant
+         AND ci.character_item_id = bi.owner_character_item_id
+         AND ci.is_current = TRUE
+        WHERE bi.is_active = TRUE
+          AND bi.module_name = ${moduleName}
+        GROUP BY ci.character_address
+        ORDER BY building_count DESC, last_seen_at DESC NULLS LAST, ci.character_address ASC
+        LIMIT ${limit}
+      `
+    : await sql`
+        SELECT
+          ci.character_address AS wallet_address,
+          COUNT(*)::int AS building_count,
+          MAX(bi.last_seen_at) AS last_seen_at
+        FROM building_instances AS bi
+        JOIN character_identity AS ci
+          ON ci.tenant = bi.tenant
+         AND ci.character_item_id = bi.owner_character_item_id
+         AND ci.is_current = TRUE
+        WHERE bi.is_active = TRUE
+        GROUP BY ci.character_address
+        ORDER BY building_count DESC, last_seen_at DESC NULLS LAST, ci.character_address ASC
+        LIMIT ${limit}
+      `
+
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    walletAddress: row.wallet_address,
+    buildingCount: row.building_count,
+    lastSeenAt: row.last_seen_at,
+  }))
+}

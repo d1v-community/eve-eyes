@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { loadProjectEnv } from './load-env.mjs'
 import { getIndexerConfig } from '../src/config.mjs'
 import {
+  resolvePendingBuildingInstances,
   resolvePendingKillmailRecords,
   syncDerivedRecordsForTransactionBlock,
 } from '../src/derived-record-sync.mjs'
@@ -60,6 +61,8 @@ async function main() {
     const totalCount = rows.length
     let syncedCount = 0
     let skippedCount = 0
+    let buildingChangeCount = 0
+    let buildingOwnerCapChangeCount = 0
     let characterChangeCount = 0
     let killmailCount = 0
     const rpcUsage = new Map()
@@ -78,6 +81,8 @@ async function main() {
       }
 
       syncedCount += 1
+      buildingChangeCount += result.buildingChangeCount
+      buildingOwnerCapChangeCount += result.buildingOwnerCapChangeCount
       characterChangeCount += result.characterChangeCount
       killmailCount += result.killmailCount
 
@@ -86,12 +91,16 @@ async function main() {
       }
     }
 
+    const buildingResolution = await resolvePendingBuildingInstances(sql, resolveLimit)
     const resolution = await resolvePendingKillmailRecords(sql, resolveLimit)
 
     logger.info('derived-record sync completed', {
       totalCount,
       syncedCount,
       skippedCount,
+      buildingChangeCount,
+      buildingOwnerCapChangeCount,
+      resolvedBuildingOwnerCount: buildingResolution.resolvedCount,
       characterChangeCount,
       killmailCount,
       resolvedKillmailCount: resolution.resolvedCount,

@@ -74,6 +74,68 @@ function getKillmailEventType(packageId) {
   return `${packageId}::killmail::KillmailCreatedEvent`
 }
 
+const BUILDING_TYPE_NAMES_BY_MODULE = {
+  assembly: 'Assembly',
+  gate: 'Gate',
+  network_node: 'NetworkNode',
+  storage_unit: 'StorageUnit',
+  turret: 'Turret',
+}
+
+function getBuildingObjectTypes(packageId) {
+  return Object.fromEntries(
+    Object.entries(BUILDING_TYPE_NAMES_BY_MODULE).map(([moduleName, typeName]) => [
+      moduleName,
+      `${packageId}::${moduleName}::${typeName}`,
+    ])
+  )
+}
+
+function getBuildingOwnerCapTypes(packageId) {
+  return Object.fromEntries(
+    Object.entries(getBuildingObjectTypes(packageId)).map(([moduleName, objectType]) => [
+      moduleName,
+      `${packageId}::access::OwnerCap<${objectType}>`,
+    ])
+  )
+}
+
+function findBuildingModuleNameByObjectType(objectType, packageId) {
+  const normalizedObjectType = normalizeOptionalText(objectType)
+
+  if (!normalizedObjectType) {
+    return null
+  }
+
+  return (
+    Object.entries(getBuildingObjectTypes(packageId)).find(
+      ([, buildingObjectType]) => buildingObjectType === normalizedObjectType
+    )?.[0] ?? null
+  )
+}
+
+function getNestedVariant(value, depth = 4) {
+  if (depth < 0 || value == null) {
+    return null
+  }
+
+  if (typeof value?.variant === 'string' && value.variant.trim().length > 0) {
+    return value.variant.trim()
+  }
+
+  const fields = value?.fields ?? value
+
+  if (fields == null || typeof fields !== 'object') {
+    return null
+  }
+
+  return getNestedVariant(fields.status ?? fields.value ?? null, depth - 1)
+}
+
+function isBuildingStatusActive(status) {
+  return status !== 'DELETED' && status !== 'UNANCHORED'
+}
+
 function getLossTypeVariant(value) {
   if (typeof value?.variant === 'string' && value.variant.trim().length > 0) {
     return value.variant.trim()
@@ -262,6 +324,118 @@ export function extractCharacterIdentitySnapshot(pastObject, packageId) {
     characterObjectId: objectId,
     characterAddress,
     sourceObjectVersion,
+  }
+}
+
+export function extractBuildingObjectChanges(objectChanges, packageId) {
+  return normalizeArray(objectChanges).flatMap((change) => {
+    const moduleName = findBuildingModuleNameByObjectType(change?.objectType, packageId)
+
+    if (!moduleName) {
+      return []
+    }
+
+    const objectId = normalizeOptionalText(change?.objectId)
+    const version =
+      change?.version == null
+        ? normalizeOptionalText(change?.previousVersion)
+        : String(change.version)
+
+    if (!objectId) {
+      return []
+    }
+
+    if ((change?.type === 'created' || change?.type === 'mutated') && version) {
+      return [
+        {
+          kind: 'upsert',
+          moduleName,
+          objectType: change.objectType,
+          objectId,
+          version,
+        },
+      ]
+    }
+
+    if (change?.type === 'deleted') {
+      return [
+        {
+          kind: 'delete',
+          moduleName,
+          objectType: change.objectType,
+          objectId,
+          version: version ?? null,
+        },
+      ]
+    }
+
+    return []
+  })
+}
+
+export function extractBuildingOwnerCapChanges(objectChanges, packageId) {
+  const ownerCapTypes = getBuildingOwnerCapTypes(packageId)
+
+  return normalizeArray(objectChanges).flatMap((change) => {
+    const matchedEntry = Object.entries(ownerCapTypes).find(
+      ([, ownerCapType]) => ownerCapType === change?.objectType
+    )
+
+    if (!matchedEntry) {
+      return []
+    }
+
+    const [moduleName] = matchedEntry
+    const ownerCapId = normalizeOptionalText(change?.objectId)
+    const ownerCharacterObjectId = normalizeOptionalText(change?.owner?.AddressOwner)
+
+    if (!ownerCapId) {
+      return []
+    }
+
+    return [
+      {
+        moduleName,
+        ownerCapId,
+        ownerCharacterObjectId,
+      },
+    ]
+  })
+}
+
+export function extractBuildingInstanceSnapshot(pastObject, packageId) {
+  const details = pastObject?.details ?? pastObject?.data ?? pastObject
+  const objectType = normalizeOptionalText(details?.type)
+  const fields = details?.content?.fields ?? details?.fields
+  const moduleName = findBuildingModuleNameByObjectType(objectType, packageId)
+
+  if (!moduleName || !fields) {
+    return null
+  }
+
+  const tenantItem = getTenantItemParts(fields?.key)
+  const buildingObjectId = normalizeOptionalText(
+    fields?.id?.id ?? details?.objectId ?? details?.data?.objectId
+  )
+  const typeId =
+    fields?.type_id == null ? null : normalizeOptionalText(String(fields.type_id))
+  const ownerCapId = normalizeOptionalText(fields?.owner_cap_id)
+  const status = getNestedVariant(fields?.status)
+
+  if (!tenantItem || !buildingObjectId || !typeId || !ownerCapId) {
+    return null
+  }
+
+  return {
+    tenant: tenantItem.tenant,
+    buildingItemId: tenantItem.itemId,
+    buildingObjectId,
+    moduleName,
+    objectType,
+    typeId,
+    ownerCapId,
+    status,
+    isActive: isBuildingStatusActive(status),
   }
 }
 
@@ -487,6 +661,211 @@ export async function upsertCharacterIdentity(transaction, snapshot, source) {
   `
 
   await refreshCurrentCharacterIdentityRows(transaction, snapshot)
+}
+
+async function findCurrentCharacterIdentityByObjectId(transaction, input) {
+  if (!input?.ownerCharacterObjectId) {
+    return null
+  }
+
+  const rows = await transaction`
+    SELECT
+      character_item_id,
+      character_object_id
+    FROM character_identity
+    WHERE character_object_id = ${input.ownerCharacterObjectId}
+      AND is_current = TRUE
+    ORDER BY valid_from DESC, id DESC
+    LIMIT 1
+  `
+
+  return rows[0] ?? null
+}
+
+export async function upsertBuildingInstance(transaction, snapshot, source) {
+  const resolvedOwner = await findCurrentCharacterIdentityByObjectId(transaction, {
+    ownerCharacterObjectId: source.ownerCharacterObjectId,
+  })
+
+  await transaction`
+    INSERT INTO building_instances (
+      tenant,
+      building_item_id,
+      building_object_id,
+      module_name,
+      object_type,
+      type_id,
+      owner_cap_id,
+      owner_character_item_id,
+      owner_character_object_id,
+      status,
+      is_active,
+      first_seen_tx_digest,
+      first_seen_at,
+      last_seen_tx_digest,
+      last_seen_at,
+      updated_at
+    )
+    VALUES (
+      ${snapshot.tenant},
+      ${snapshot.buildingItemId},
+      ${snapshot.buildingObjectId},
+      ${snapshot.moduleName},
+      ${snapshot.objectType},
+      ${snapshot.typeId},
+      ${snapshot.ownerCapId},
+      ${resolvedOwner?.character_item_id ?? null},
+      ${source.ownerCharacterObjectId ?? null},
+      ${snapshot.status},
+      ${snapshot.isActive},
+      ${source.sourceTxDigest},
+      ${source.sourceTxTimestamp},
+      ${source.sourceTxDigest},
+      ${source.sourceTxTimestamp},
+      NOW()
+    )
+    ON CONFLICT (tenant, building_item_id)
+    DO UPDATE SET
+      building_object_id = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.building_object_id
+        ELSE building_instances.building_object_id
+      END,
+      module_name = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.module_name
+        ELSE building_instances.module_name
+      END,
+      object_type = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.object_type
+        ELSE building_instances.object_type
+      END,
+      type_id = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.type_id
+        ELSE building_instances.type_id
+      END,
+      owner_cap_id = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.owner_cap_id
+        ELSE building_instances.owner_cap_id
+      END,
+      owner_character_item_id = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+          AND EXCLUDED.owner_character_item_id IS NOT NULL
+        THEN EXCLUDED.owner_character_item_id
+        ELSE building_instances.owner_character_item_id
+      END,
+      owner_character_object_id = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+          AND EXCLUDED.owner_character_object_id IS NOT NULL
+        THEN EXCLUDED.owner_character_object_id
+        ELSE building_instances.owner_character_object_id
+      END,
+      status = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.status
+        ELSE building_instances.status
+      END,
+      is_active = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.is_active
+        ELSE building_instances.is_active
+      END,
+      first_seen_tx_digest = CASE
+        WHEN EXCLUDED.first_seen_at < building_instances.first_seen_at
+        THEN EXCLUDED.first_seen_tx_digest
+        ELSE building_instances.first_seen_tx_digest
+      END,
+      first_seen_at = LEAST(building_instances.first_seen_at, EXCLUDED.first_seen_at),
+      last_seen_tx_digest = CASE
+        WHEN EXCLUDED.last_seen_at >= building_instances.last_seen_at
+        THEN EXCLUDED.last_seen_tx_digest
+        ELSE building_instances.last_seen_tx_digest
+      END,
+      last_seen_at = GREATEST(building_instances.last_seen_at, EXCLUDED.last_seen_at),
+      updated_at = NOW()
+  `
+}
+
+export async function closeBuildingInstance(transaction, input) {
+  await transaction`
+    UPDATE building_instances
+    SET
+      status = CASE
+        WHEN ${input.sourceTxTimestamp} >= last_seen_at
+        THEN 'DELETED'
+        ELSE status
+      END,
+      is_active = CASE
+        WHEN ${input.sourceTxTimestamp} >= last_seen_at
+        THEN FALSE
+        ELSE is_active
+      END,
+      last_seen_tx_digest = CASE
+        WHEN ${input.sourceTxTimestamp} >= last_seen_at
+        THEN ${input.sourceTxDigest}
+        ELSE last_seen_tx_digest
+      END,
+      last_seen_at = GREATEST(last_seen_at, ${input.sourceTxTimestamp}),
+      updated_at = NOW()
+    WHERE building_object_id = ${input.buildingObjectId}
+  `
+}
+
+export async function updateBuildingOwnerFromOwnerCap(transaction, input) {
+  const resolvedOwner = await findCurrentCharacterIdentityByObjectId(transaction, {
+    ownerCharacterObjectId: input.ownerCharacterObjectId,
+  })
+
+  await transaction`
+    UPDATE building_instances
+    SET
+      owner_character_object_id = ${input.ownerCharacterObjectId ?? null},
+      owner_character_item_id = ${resolvedOwner?.character_item_id ?? null},
+      last_seen_tx_digest = CASE
+        WHEN ${input.sourceTxTimestamp} >= last_seen_at
+        THEN ${input.sourceTxDigest}
+        ELSE last_seen_tx_digest
+      END,
+      last_seen_at = GREATEST(last_seen_at, ${input.sourceTxTimestamp}),
+      updated_at = NOW()
+    WHERE owner_cap_id = ${input.ownerCapId}
+  `
+}
+
+export async function resolvePendingBuildingInstances(sql, limit = 200) {
+  const rows = await sql`
+    WITH candidates AS (
+      SELECT
+        bi.id,
+        ci.character_item_id
+      FROM building_instances AS bi
+      JOIN character_identity AS ci
+        ON ci.character_object_id = bi.owner_character_object_id
+       AND ci.is_current = TRUE
+      WHERE bi.owner_character_object_id IS NOT NULL
+        AND bi.owner_character_item_id IS NULL
+      ORDER BY bi.last_seen_at DESC, bi.id DESC
+      LIMIT ${limit}
+    ),
+    updated AS (
+      UPDATE building_instances AS bi
+      SET
+        owner_character_item_id = candidates.character_item_id,
+        updated_at = NOW()
+      FROM candidates
+      WHERE bi.id = candidates.id
+      RETURNING bi.id
+    )
+    SELECT COUNT(*)::int AS resolved_count
+    FROM updated
+  `
+
+  return {
+    resolvedCount: rows[0]?.resolved_count ?? 0,
+  }
 }
 
 export async function upsertKillmailRecord(transaction, payload) {

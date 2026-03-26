@@ -5,6 +5,7 @@ import { getIndexerConfig } from '../src/config.mjs'
 import { processTransactionBlock } from '../src/ingest.mjs'
 import { createLogger, createRpcPool } from './sui-rpc-sync-helpers.mjs'
 import {
+  resolvePendingBuildingInstances,
   resolvePendingKillmailRecords,
   syncDerivedRecordsForTransactionBlock,
 } from '../src/derived-record-sync.mjs'
@@ -101,6 +102,8 @@ async function main() {
 
     let syncedCount = 0
     let skippedCount = 0
+    let buildingChangeCount = 0
+    let buildingOwnerCapChangeCount = 0
     let characterChangeCount = 0
     let killmailCount = 0
 
@@ -132,16 +135,22 @@ async function main() {
       }
 
       syncedCount += 1
+      buildingChangeCount += result.buildingChangeCount
+      buildingOwnerCapChangeCount += result.buildingOwnerCapChangeCount
       characterChangeCount += result.characterChangeCount
       killmailCount += result.killmailCount
     }
 
+    const buildingResolution = await resolvePendingBuildingInstances(sql, 500)
     const resolution = await resolvePendingKillmailRecords(sql, 500)
 
     logger.info('targeted derived-record sync completed', {
       digests,
       syncedCount,
       skippedCount,
+      buildingChangeCount,
+      buildingOwnerCapChangeCount,
+      resolvedBuildingOwnerCount: buildingResolution.resolvedCount,
       characterChangeCount,
       killmailCount,
       resolvedKillmailCount: resolution.resolvedCount,

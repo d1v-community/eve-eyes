@@ -1,13 +1,57 @@
 import {
+  closeBuildingInstance,
   closeCharacterIdentity,
+  extractBuildingInstanceSnapshot,
+  extractBuildingObjectChanges,
+  extractBuildingOwnerCapChanges,
   extractCharacterCreatedSnapshots,
   extractCharacterObjectChanges,
   extractKillmailEvents,
+  resolvePendingBuildingInstances,
   resolvePendingKillmailRecords,
   resolveSourceTimestamp,
+  updateBuildingOwnerFromOwnerCap,
+  upsertBuildingInstance,
   upsertCharacterIdentity,
   upsertKillmailRecord,
 } from './derived-records.mjs'
+
+async function fetchBuildingSnapshot(rpcPool, packageId, change, rpcUsage) {
+  const { result, rpcUrl } = await rpcPool.tryGetPastObject({
+    id: change.objectId,
+    version: String(change.version),
+    options: {
+      showType: true,
+      showOwner: true,
+      showContent: true,
+    },
+  })
+
+  rpcUsage.push(rpcUrl)
+
+  const snapshot = extractBuildingInstanceSnapshot(result, packageId)
+
+  if (snapshot) {
+    return snapshot
+  }
+
+  try {
+    const { result: currentResult, rpcUrl: currentRpcUrl } = await rpcPool.getObject({
+      id: change.objectId,
+      options: {
+        showType: true,
+        showOwner: true,
+        showContent: true,
+      },
+    })
+
+    rpcUsage.push(currentRpcUrl)
+
+    return extractBuildingInstanceSnapshot(currentResult, packageId)
+  } catch {
+    return null
+  }
+}
 
 export async function syncDerivedRecordsForTransactionBlock(
   sql,
@@ -33,16 +77,23 @@ export async function syncDerivedRecordsForTransactionBlock(
       LIMIT 1
     `
 
-    if (syncStateRows[0]?.derived_records_synced_at) {
-      return {
-        skipped: true,
-        characterChangeCount: 0,
-        killmailCount: 0,
-        rpcUsage: [],
+      if (syncStateRows[0]?.derived_records_synced_at) {
+        return {
+          skipped: true,
+          buildingChangeCount: 0,
+          buildingOwnerCapChangeCount: 0,
+          characterChangeCount: 0,
+          killmailCount: 0,
+          rpcUsage: [],
       }
     }
 
     const characterChanges = extractCharacterObjectChanges(
+      row.object_changes,
+      packageId
+    )
+    const buildingChanges = extractBuildingObjectChanges(row.object_changes, packageId)
+    const buildingOwnerCapChanges = extractBuildingOwnerCapChanges(
       row.object_changes,
       packageId
     )
@@ -54,6 +105,10 @@ export async function syncDerivedRecordsForTransactionBlock(
     )
     const killmailEvents = extractKillmailEvents(row.events, packageId)
     const rpcUsage = []
+
+    const ownerCapChangeById = new Map(
+      buildingOwnerCapChanges.map((change) => [change.ownerCapId, change])
+    )
 
     for (const snapshot of characterCreateSnapshots) {
       await upsertCharacterIdentity(transaction, snapshot, {
@@ -74,6 +129,45 @@ export async function syncDerivedRecordsForTransactionBlock(
       })
     }
 
+    for (const change of buildingChanges) {
+      if (change.kind === 'delete') {
+        await closeBuildingInstance(transaction, {
+          buildingObjectId: change.objectId,
+          sourceTxDigest: row.digest,
+          sourceTxTimestamp,
+        })
+        continue
+      }
+
+      const snapshot = await fetchBuildingSnapshot(
+        rpcPool,
+        packageId,
+        change,
+        rpcUsage
+      )
+
+      if (!snapshot) {
+        continue
+      }
+
+      const ownerCapChange = ownerCapChangeById.get(snapshot.ownerCapId)
+
+      await upsertBuildingInstance(transaction, snapshot, {
+        sourceTxDigest: row.digest,
+        sourceTxTimestamp,
+        ownerCharacterObjectId: ownerCapChange?.ownerCharacterObjectId ?? null,
+      })
+    }
+
+    for (const ownerCapChange of buildingOwnerCapChanges) {
+      await updateBuildingOwnerFromOwnerCap(transaction, {
+        ownerCapId: ownerCapChange.ownerCapId,
+        ownerCharacterObjectId: ownerCapChange.ownerCharacterObjectId,
+        sourceTxDigest: row.digest,
+        sourceTxTimestamp,
+      })
+    }
+
     for (const killmailEvent of killmailEvents) {
       await upsertKillmailRecord(transaction, {
         ...killmailEvent,
@@ -89,15 +183,17 @@ export async function syncDerivedRecordsForTransactionBlock(
       WHERE digest = ${row.digest}
     `
 
-    return {
-      skipped: false,
-      characterChangeCount:
-        characterCreateSnapshots.length +
-        characterChanges.filter((change) => change.kind === 'delete').length,
+      return {
+        skipped: false,
+        buildingChangeCount: buildingChanges.length,
+        buildingOwnerCapChangeCount: buildingOwnerCapChanges.length,
+        characterChangeCount:
+          characterCreateSnapshots.length +
+          characterChanges.filter((change) => change.kind === 'delete').length,
       killmailCount: killmailEvents.length,
       rpcUsage,
     }
   })
 }
 
-export { resolvePendingKillmailRecords }
+export { resolvePendingBuildingInstances, resolvePendingKillmailRecords }

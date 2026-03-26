@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildResolutionError,
+  extractBuildingInstanceSnapshot,
+  extractBuildingObjectChanges,
+  extractBuildingOwnerCapChanges,
   extractCharacterCreatedSnapshots,
   extractCharacterIdentitySnapshot,
   extractCharacterObjectChanges,
@@ -67,6 +70,142 @@ test('extractCharacterObjectChanges keeps only character create, mutate, and del
       version: null,
     },
   ])
+})
+
+test('extractBuildingObjectChanges keeps only supported building object changes', () => {
+  const changes = extractBuildingObjectChanges(
+    [
+      {
+        type: 'mutated',
+        objectType: `${PACKAGE_ID}::gate::Gate`,
+        objectId:
+          '0x243a793517d79aad8d0ccfbd8ec3591f967de81ae1c80ad4be8e591ac8dbaedf',
+        version: '807858055',
+      },
+      {
+        type: 'deleted',
+        objectType: `${PACKAGE_ID}::network_node::NetworkNode`,
+        objectId:
+          '0xeb1cd6d3bb2e3c88c2cb1b62238dfd0336359e7cf052b629a6b88fbd6a817e06',
+      },
+      {
+        type: 'mutated',
+        objectType: `${PACKAGE_ID}::character::Character`,
+        objectId:
+          '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+        version: '807858054',
+      },
+    ],
+    PACKAGE_ID
+  )
+
+  assert.deepEqual(changes, [
+    {
+      kind: 'upsert',
+      moduleName: 'gate',
+      objectType: `${PACKAGE_ID}::gate::Gate`,
+      objectId:
+        '0x243a793517d79aad8d0ccfbd8ec3591f967de81ae1c80ad4be8e591ac8dbaedf',
+      version: '807858055',
+    },
+    {
+      kind: 'delete',
+      moduleName: 'network_node',
+      objectType: `${PACKAGE_ID}::network_node::NetworkNode`,
+      objectId:
+        '0xeb1cd6d3bb2e3c88c2cb1b62238dfd0336359e7cf052b629a6b88fbd6a817e06',
+      version: null,
+    },
+  ])
+})
+
+test('extractBuildingOwnerCapChanges keeps owner caps for supported building types', () => {
+  const changes = extractBuildingOwnerCapChanges(
+    [
+      {
+        type: 'mutated',
+        objectType: `${PACKAGE_ID}::access::OwnerCap<${PACKAGE_ID}::gate::Gate>`,
+        objectId:
+          '0x9b0153aa6f64dd8abf0a971a48bb3c4ce0cfff625c330c8cb862eebb15b3eefc',
+        owner: {
+          AddressOwner:
+            '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+        },
+      },
+      {
+        type: 'mutated',
+        objectType: `${PACKAGE_ID}::access::OwnerCap<${PACKAGE_ID}::character::Character>`,
+        objectId:
+          '0x76eaa67a810b5de440e107181b82694e455cb55cd7e33c8af6edb2c1ff61b3b4',
+        owner: {
+          AddressOwner:
+            '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+        },
+      },
+    ],
+    PACKAGE_ID
+  )
+
+  assert.deepEqual(changes, [
+    {
+      moduleName: 'gate',
+      ownerCapId:
+        '0x9b0153aa6f64dd8abf0a971a48bb3c4ce0cfff625c330c8cb862eebb15b3eefc',
+      ownerCharacterObjectId:
+        '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+    },
+  ])
+})
+
+test('extractBuildingInstanceSnapshot parses building identity, type, and status', () => {
+  const snapshot = extractBuildingInstanceSnapshot(
+    {
+      data: {
+        objectId:
+          '0xeb1cd6d3bb2e3c88c2cb1b62238dfd0336359e7cf052b629a6b88fbd6a817e06',
+        type: `${PACKAGE_ID}::network_node::NetworkNode`,
+        content: {
+          fields: {
+            id: {
+              id: '0xeb1cd6d3bb2e3c88c2cb1b62238dfd0336359e7cf052b629a6b88fbd6a817e06',
+            },
+            key: {
+              fields: {
+                item_id: '1000000019867',
+                tenant: 'utopia',
+              },
+            },
+            owner_cap_id:
+              '0x0eeae7edca5e54db0b35e79eff08bec0134f3b6b467b752a0ee3b99179940731',
+            type_id: '88092',
+            status: {
+              fields: {
+                status: {
+                  variant: 'OFFLINE',
+                  fields: {},
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    PACKAGE_ID
+  )
+
+  assert.deepEqual(snapshot, {
+    tenant: 'utopia',
+    buildingItemId: '1000000019867',
+    buildingObjectId:
+      '0xeb1cd6d3bb2e3c88c2cb1b62238dfd0336359e7cf052b629a6b88fbd6a817e06',
+    moduleName: 'network_node',
+    objectType: `${PACKAGE_ID}::network_node::NetworkNode`,
+    typeId: '88092',
+    ownerCapId:
+      '0x0eeae7edca5e54db0b35e79eff08bec0134f3b6b467b752a0ee3b99179940731',
+    status: 'OFFLINE',
+    isActive: true,
+  })
 })
 
 test('extractCharacterCreatedSnapshots builds character identity rows from create events', () => {
