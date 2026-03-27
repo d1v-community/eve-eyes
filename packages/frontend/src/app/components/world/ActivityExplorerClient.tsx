@@ -12,6 +12,7 @@ type ActivityParticipant = {
   characterItemId: string | null
   characterObjectId: string | null
   walletAddress: string | null
+  username?: string | null
 }
 
 type UserActivity = {
@@ -26,6 +27,7 @@ type UserActivity = {
   functionName: string | null
   sourceKind: string
   summary: string
+  username?: string | null
   participants: ActivityParticipant[]
 }
 

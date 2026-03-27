@@ -59,8 +59,10 @@ test('handleBuildingLeaderboardRequest returns versioned public payload with COR
           rank: 1,
           tenant: 'utopia',
           ownerCharacterItemId: '2112000069',
+          userId: '2112000069',
           walletAddress:
             '0xad0221857e57908707762a74b68e6f340b06a6e9f991c270ae9c06cf1a92fb71',
+          username: 'leader-name',
           buildingCount: 54,
           lastSeenAt: '2026-03-26T12:48:36.498Z',
         },
@@ -86,8 +88,10 @@ test('handleBuildingLeaderboardRequest returns versioned public payload with COR
         rank: 1,
         tenant: 'utopia',
         ownerCharacterItemId: '2112000069',
+        userId: '2112000069',
         walletAddress:
           '0xad0221857e57908707762a74b68e6f340b06a6e9f991c270ae9c06cf1a92fb71',
+        username: 'leader-name',
         buildingCount: 54,
         lastSeenAt: '2026-03-26T12:48:36.498Z',
       },

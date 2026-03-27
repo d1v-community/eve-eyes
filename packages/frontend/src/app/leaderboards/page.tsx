@@ -23,7 +23,9 @@ type LeaderboardEntry = {
   rank: number
   tenant: string
   ownerCharacterItemId: string
+  userId: string
   walletAddress: string | null
+  username: string | null
   buildingCount: number
   lastSeenAt: string | null
 }
@@ -127,6 +129,8 @@ export default async function LeaderboardsPage({
                     <LeaderboardOwnerCell
                       tenant={leader.tenant}
                       walletAddress={leader.walletAddress}
+                      username={leader.username}
+                      userId={leader.userId}
                       variant="hero"
                     />
                   </div>
@@ -283,10 +287,12 @@ export default async function LeaderboardsPage({
                             </span>
                           </td>
                           <td className="h-[76px] border-b border-slate-200/70 px-4 py-4 align-middle text-sm dark:border-slate-800">
-                            <LeaderboardOwnerCell
-                              tenant={entry.tenant}
-                              walletAddress={entry.walletAddress}
-                            />
+                             <LeaderboardOwnerCell
+                               tenant={entry.tenant}
+                               walletAddress={entry.walletAddress}
+                               username={entry.username}
+                               userId={entry.userId}
+                             />
                           </td>
                           <td className="h-[76px] border-b border-slate-200/70 px-4 py-4 align-middle dark:border-slate-800">
                             <span className="font-data text-sm text-slate-600 dark:text-slate-300">
@@ -322,10 +328,12 @@ export default async function LeaderboardsPage({
                           Rank {entry.rank}
                         </div>
                         <div className="mt-2">
-                          <LeaderboardOwnerCell
-                            tenant={entry.tenant}
-                            walletAddress={entry.walletAddress}
-                          />
+                           <LeaderboardOwnerCell
+                             tenant={entry.tenant}
+                             walletAddress={entry.walletAddress}
+                             username={entry.username}
+                             userId={entry.userId}
+                           />
                         </div>
                         <div className="mt-3 flex items-center gap-2">
                           <span className="font-display text-[10px] uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">

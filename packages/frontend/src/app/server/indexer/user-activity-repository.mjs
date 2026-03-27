@@ -1,4 +1,5 @@
 import { normalizeWalletAddress } from '../users/repository.mjs'
+import { resolveCharacterLabels } from './character-directory.mjs'
 
 function normalizeOptionalText(value) {
   if (typeof value !== 'string') {
@@ -75,6 +76,7 @@ function mapParticipantRow(row) {
     characterItemId: row.character_item_id,
     characterObjectId: row.character_object_id,
     walletAddress: row.wallet_address,
+    username: null,
     resolvedVia: row.resolved_via,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -95,6 +97,7 @@ function mapActivityRow(row, participants = []) {
     sourceKind: row.source_kind,
     summary: row.summary,
     walletAddress: row.primary_wallet_address,
+    username: null,
     characterItemId: row.primary_character_item_id,
     characterObjectId: row.primary_character_object_id,
     rawSource: row.raw_source,
@@ -102,6 +105,32 @@ function mapActivityRow(row, participants = []) {
     updatedAt: row.updated_at,
     participants,
   }
+}
+
+function rewriteSummaryWithUsername(activity) {
+  if (!activity?.summary) {
+    return activity?.summary ?? null
+  }
+
+  const actor =
+    activity.username ??
+    activity.participants.find(
+      (participant) => participant.role === 'actor' && participant.username
+    )?.username ??
+    null
+
+  if (!actor) {
+    return activity.summary
+  }
+
+  if (activity.activityType === 'character_created') {
+    return activity.summary.replace(
+      /^Character\s+([^\s]+)\s+was created for wallet\s+([^.]+)\.$/,
+      `${actor} created character $1 for wallet $2.`
+    )
+  }
+
+  return activity.summary
 }
 
 export async function listUserActivities(sql, input) {
@@ -263,10 +292,50 @@ export async function listUserActivities(sql, input) {
     participantsByRecordId.set(key, items)
   }
 
+  const items = listRows.map((row) =>
+    mapActivityRow(row, participantsByRecordId.get(String(row.id)) ?? [])
+  )
+
+  const { walletLabels, userIdLabels } = await resolveCharacterLabels(sql, {
+    walletAddresses: items.flatMap((item) => [
+      item.walletAddress,
+      ...item.participants.map((participant) => participant.walletAddress),
+    ]),
+    userIds: items.flatMap((item) => [
+      item.characterItemId,
+      ...item.participants.map((participant) => participant.characterItemId),
+    ]),
+  })
+
+  const enrichedItems = items.map((item) => {
+    const participants = item.participants.map((participant) => ({
+      ...participant,
+      username:
+        (participant.walletAddress
+          ? walletLabels.get(participant.walletAddress)
+          : null) ?? (participant.characterItemId
+          ? userIdLabels.get(participant.characterItemId)
+          : null) ?? null,
+    }))
+
+    const enrichedItem = {
+      ...item,
+      participants,
+      username:
+        (item.walletAddress ? walletLabels.get(item.walletAddress) : null) ??
+        (item.characterItemId ? userIdLabels.get(item.characterItemId) : null) ??
+        participants.find((participant) => participant.role === 'actor')?.username ??
+        null,
+    }
+
+    return {
+      ...enrichedItem,
+      summary: rewriteSummaryWithUsername(enrichedItem),
+    }
+  })
+
   return {
-    items: listRows.map((row) =>
-      mapActivityRow(row, participantsByRecordId.get(String(row.id)) ?? [])
-    ),
+    items: enrichedItems,
     total: countRows[0]?.total ?? 0,
   }
 }

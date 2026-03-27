@@ -1,5 +1,20 @@
 import { normalizeWalletAddress } from '../users/repository.mjs'
 
+const CHARACTER_CREATION_CACHE_TTL_MS = 30_000
+let characterCreationsCache = {
+  expiresAt: 0,
+  items: null,
+  promise: null,
+}
+
+export function resetCharacterCreationsCache() {
+  characterCreationsCache = {
+    expiresAt: 0,
+    items: null,
+    promise: null,
+  }
+}
+
 function parseJsonValue(value) {
   if (value == null) {
     return null
@@ -123,23 +138,88 @@ export function parseCreateCharacterMoveCall(row) {
 }
 
 export async function listAllCharacterCreations(sql) {
-  const rows = await sql`
-    SELECT
-      smc.id,
-      smc.tx_digest,
-      smc.call_index,
-      smc.raw_call,
-      smc.transaction_time,
-      t.raw_content
-    FROM suiscan_move_calls AS smc
-    LEFT JOIN transaction_blocks AS t
-      ON t.digest = smc.tx_digest
-    WHERE smc.module_name = 'character'
-      AND smc.function_name = 'create_character'
-    ORDER BY smc.transaction_time DESC NULLS LAST, smc.id DESC
-  `
+  const now = Date.now()
+
+  if (
+    Array.isArray(characterCreationsCache.items) &&
+    characterCreationsCache.expiresAt > now
+  ) {
+    return characterCreationsCache.items
+  }
+
+  if (characterCreationsCache.promise) {
+    return characterCreationsCache.promise
+  }
+
+  characterCreationsCache.promise = (async () => {
+    const rows = await sql`
+      SELECT
+        smc.id,
+        smc.tx_digest,
+        smc.call_index,
+        smc.raw_call,
+        smc.transaction_time,
+        t.raw_content
+      FROM suiscan_move_calls AS smc
+      LEFT JOIN transaction_blocks AS t
+        ON t.digest = smc.tx_digest
+      WHERE smc.module_name = 'character'
+        AND smc.function_name = 'create_character'
+      ORDER BY smc.transaction_time DESC NULLS LAST, smc.id DESC
+    `
+
+    const items = rows.map((row) => parseCreateCharacterMoveCall(row))
+    characterCreationsCache = {
+      expiresAt: Date.now() + CHARACTER_CREATION_CACHE_TTL_MS,
+      items,
+      promise: null,
+    }
+
+    return items
+  })()
+
+  try {
+    return await characterCreationsCache.promise
+  } catch (error) {
+    characterCreationsCache.promise = null
+    throw error
+  }
+}
+
+export async function listCharacterCreationsPage(sql, { limit, offset }) {
+  const rows = await sql.unsafe(
+    `
+      SELECT
+        smc.id,
+        smc.tx_digest,
+        smc.call_index,
+        smc.raw_call,
+        smc.transaction_time,
+        t.raw_content
+      FROM suiscan_move_calls AS smc
+      LEFT JOIN transaction_blocks AS t
+        ON t.digest = smc.tx_digest
+      WHERE smc.module_name = 'character'
+        AND smc.function_name = 'create_character'
+      ORDER BY smc.transaction_time DESC NULLS LAST, smc.id DESC
+      LIMIT $1
+      OFFSET $2
+    `,
+    [limit, offset]
+  )
 
   return rows.map((row) => parseCreateCharacterMoveCall(row))
+}
+
+export async function countCharacterCreations(sql) {
+  const rows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM suiscan_move_calls
+    WHERE module_name = 'character'
+      AND function_name = 'create_character'
+  `
+
+  return rows[0]?.total ?? 0
 }
 
 export async function resolveCharacterLabels(

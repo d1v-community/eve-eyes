@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { resetCharacterCreationsCache } from '../src/app/server/indexer/character-directory.mjs'
 import {
   getModuleCallCounts,
   getKillmailSummary,
@@ -91,23 +92,74 @@ test('getModuleCallCounts filters zero-count modules and includes spotlight func
 })
 
 test('listBuildingLeaderboard maps grouped owner rows and includes the module filter', async () => {
+  resetCharacterCreationsCache()
   const calls = []
   const sql = async (strings, ...values) => {
+    const text = strings.join(' ')
     calls.push({
-      text: strings.join(' '),
+      text,
       values,
     })
 
-    return [
-      {
-        tenant: 'utopia',
-        owner_character_item_id: '1000000019867',
-        wallet_address:
-          '0x194d8faf60f2fd1551abae29f1f056ad43a386d305a11a904acbd35ef7f72b67',
-        building_count: 4,
-        last_seen_at: '2026-03-25T10:15:00.000Z',
-      },
-    ]
+    if (text.includes('FROM building_instances AS bi')) {
+      return [
+        {
+          tenant: 'utopia',
+          owner_character_item_id: '1000000019867',
+          wallet_address:
+            '0x194d8faf60f2fd1551abae29f1f056ad43a386d305a11a904acbd35ef7f72b67',
+          building_count: 4,
+          last_seen_at: '2026-03-25T10:15:00.000Z',
+        },
+      ]
+    }
+
+    if (text.includes('FROM suiscan_move_calls AS smc')) {
+      return [
+        {
+          id: 1,
+          tx_digest: 'tx-leaderboard',
+          call_index: 0,
+          raw_call: {
+            arguments: [
+              { Input: 1 },
+              { Input: 0 },
+              { Input: 2 },
+              { Input: 3 },
+              { Input: 4 },
+              { Input: 5 },
+              { Input: 6 },
+            ],
+          },
+          transaction_time: '2026-03-25T10:00:00.000Z',
+          raw_content: {
+            transaction: {
+              data: {
+                transaction: {
+                  kind: 'ProgrammableTransaction',
+                  inputs: [
+                    { type: 'object', objectId: '0xadmin' },
+                    { type: 'object', objectId: '0xregistry' },
+                    { type: 'pure', value: 1000000019867, valueType: 'u32' },
+                    { type: 'pure', value: 'utopia', valueType: '0x1::string::String' },
+                    { type: 'pure', value: 1000167, valueType: 'u32' },
+                    {
+                      type: 'pure',
+                      value:
+                        '0x194d8faf60f2fd1551abae29f1f056ad43a386d305a11a904acbd35ef7f72b67',
+                      valueType: 'address',
+                    },
+                    { type: 'pure', value: 'leader-name', valueType: '0x1::string::String' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ]
+    }
+
+    throw new Error(`Unexpected query: ${text}`)
   }
 
   const leaderboard = await listBuildingLeaderboard(sql, {
@@ -120,14 +172,16 @@ test('listBuildingLeaderboard maps grouped owner rows and includes the module fi
       rank: 1,
       tenant: 'utopia',
       ownerCharacterItemId: '1000000019867',
+      userId: '1000000019867',
       walletAddress:
         '0x194d8faf60f2fd1551abae29f1f056ad43a386d305a11a904acbd35ef7f72b67',
+      username: 'leader-name',
       buildingCount: 4,
       lastSeenAt: '2026-03-25T10:15:00.000Z',
     },
   ])
 
-  assert.equal(calls.length, 1)
+  assert.equal(calls.length, 2)
   assert.match(calls[0].text, /WITH grouped AS/)
   assert.match(calls[0].text, /bi\.module_name =/)
   assert.equal(calls[0].values[0], 'gate')
@@ -229,6 +283,7 @@ test('listKillmailRecords maps killmail rows and applies the status filter', asy
 })
 
 test('listKillmailRecordsWithUsernames enriches parties with usernames', async () => {
+  resetCharacterCreationsCache()
   let callCount = 0
   const sql = async (strings, ...values) => {
     callCount += 1
@@ -357,7 +412,6 @@ test('listKillmailRecordsWithUsernames enriches parties with usernames', async (
     limit: 20,
   })
 
-  assert.equal(callCount >= 2, true)
   assert.equal(rows[0].killerUsername, 'killer-name')
   assert.equal(rows[0].victimUsername, 'victim-name')
   assert.equal(rows[0].reportedByUsername, 'killer-name')

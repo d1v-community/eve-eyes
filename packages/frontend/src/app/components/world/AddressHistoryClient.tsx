@@ -12,6 +12,7 @@ type ActivityParticipant = {
   characterItemId: string | null
   characterObjectId: string | null
   walletAddress: string | null
+  username: string | null
   resolvedVia: string | null
 }
 
@@ -28,6 +29,7 @@ type UserActivity = {
   sourceKind: string
   summary: string
   walletAddress: string | null
+  username: string | null
   characterItemId: string | null
   characterObjectId: string | null
   participants: ActivityParticipant[]
@@ -111,6 +113,16 @@ function buildParticipantSummary(participants: ActivityParticipant[], address: s
   return matches
     .map((participant) => `${participant.role.replaceAll('_', ' ')}`)
     .join(' • ')
+}
+
+function formatParticipantChip(participant: ActivityParticipant) {
+  return (
+    participant.username ??
+    participant.walletAddress ??
+    participant.characterItemId ??
+    participant.characterObjectId ??
+    'unknown'
+  )
 }
 
 export default function AddressHistoryClient({ address }: { address: string }) {
@@ -380,8 +392,12 @@ export default function AddressHistoryClient({ address }: { address: string }) {
                                   <span className="uppercase tracking-[0.18em] opacity-70">
                                     {participant.role.replaceAll('_', ' ')}
                                   </span>
-                                  <span className="font-mono">
-                                    {truncateValue(chipAddress ?? participant.characterItemId ?? 'unknown')}
+                                  <span className={participant.username ? '' : 'font-mono'}>
+                                    {participant.username
+                                      ? formatParticipantChip(participant)
+                                      : truncateValue(
+                                          chipAddress ?? participant.characterItemId ?? 'unknown'
+                                        )}
                                   </span>
                                 </Link>
                               )

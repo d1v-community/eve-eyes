@@ -1,8 +1,9 @@
 import { normalizeWalletAddress } from '../users/repository.mjs'
 import { withMoveCallAction, withMoveCallActions } from './move-call-action.mjs'
 import {
+  countCharacterCreations,
   enrichActionEntitiesWithUsernames,
-  listAllCharacterCreations,
+  listCharacterCreationsPage,
 } from './character-directory.mjs'
 
 function normalizeOptionalText(value) {
@@ -425,11 +426,16 @@ export async function getMoveCallByTxDigestAndCallIndex(sql, txDigest, callIndex
 }
 
 export async function listCharacterCreations(sql, input) {
-  const items = await listAllCharacterCreations(sql)
-  const pagedItems = items.slice(input.offset, input.offset + input.pageSize)
+  const [items, total] = await Promise.all([
+    listCharacterCreationsPage(sql, {
+      limit: input.pageSize,
+      offset: input.offset,
+    }),
+    countCharacterCreations(sql),
+  ])
 
   return {
-    items: pagedItems,
-    total: items.length,
+    items,
+    total,
   }
 }

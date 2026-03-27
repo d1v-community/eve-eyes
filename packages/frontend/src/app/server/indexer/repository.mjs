@@ -402,13 +402,26 @@ export async function listBuildingLeaderboard(sql, input = {}) {
         LIMIT ${limit}
       `
 
-  return rows.map((row, index) => ({
+  const leaderboard = rows.map((row, index) => ({
     rank: index + 1,
     tenant: row.tenant,
     ownerCharacterItemId: row.owner_character_item_id,
+    userId: row.owner_character_item_id,
     walletAddress: row.wallet_address ?? null,
     buildingCount: row.building_count,
     lastSeenAt: row.last_seen_at,
+  }))
+  const { walletLabels, userIdLabels } = await resolveCharacterLabels(sql, {
+    walletAddresses: leaderboard.map((row) => row.walletAddress),
+    userIds: leaderboard.map((row) => row.userId),
+  })
+
+  return leaderboard.map((row) => ({
+    ...row,
+    username:
+      (row.walletAddress ? walletLabels.get(row.walletAddress) : null) ??
+      userIdLabels.get(row.userId) ??
+      null,
   }))
 }
 
