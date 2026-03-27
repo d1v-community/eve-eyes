@@ -21,6 +21,8 @@ const INDEXER_MODULES = [
   'world',
 ]
 
+import { resolveCharacterLabels } from './character-directory.mjs'
+
 const MODULE_SPOTLIGHT_FUNCTIONS = {
   character: 'create_character',
 }
@@ -287,6 +289,38 @@ export async function listKillmailRecords(sql, input = {}) {
     resolutionError: row.resolution_error ?? null,
     resolvedAt: row.resolved_at ?? null,
     rawEvent: row.raw_event,
+  }))
+}
+
+export async function listKillmailRecordsWithUsernames(sql, input = {}) {
+  const records = await listKillmailRecords(sql, input)
+  const { walletLabels, userIdLabels } = await resolveCharacterLabels(sql, {
+    walletAddresses: records.flatMap((record) => [
+      record.killerWalletAddress,
+      record.victimWalletAddress,
+      record.reportedByWalletAddress,
+    ]),
+    userIds: records.flatMap((record) => [
+      record.killerCharacterItemId,
+      record.victimCharacterItemId,
+      record.reportedByCharacterItemId,
+    ]),
+  })
+
+  return records.map((record) => ({
+    ...record,
+    killerUsername:
+      (record.killerWalletAddress
+        ? walletLabels.get(record.killerWalletAddress)
+        : null) ?? userIdLabels.get(record.killerCharacterItemId) ?? null,
+    victimUsername:
+      (record.victimWalletAddress
+        ? walletLabels.get(record.victimWalletAddress)
+        : null) ?? userIdLabels.get(record.victimCharacterItemId) ?? null,
+    reportedByUsername:
+      (record.reportedByWalletAddress
+        ? walletLabels.get(record.reportedByWalletAddress)
+        : null) ?? userIdLabels.get(record.reportedByCharacterItemId) ?? null,
   }))
 }
 

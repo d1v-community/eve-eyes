@@ -6,6 +6,7 @@ export type ActionEntity = {
   value: string
   kind: 'object' | 'account' | 'unknown'
   label?: string | null
+  displayValue?: string | null
 }
 
 function escapeRegExp(value: string) {
@@ -45,9 +46,13 @@ function renderEntity(
   const content = (
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold leading-5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition duration-150 ${getKindClassName(entity.kind)} ${href ? 'hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(14,165,233,0.18)]' : ''}`}
-      title={entity.label ? `${entity.label} · ${entity.kind}` : entity.kind}
+      title={
+        entity.label
+          ? `${entity.label} · ${entity.kind} · ${entity.value}`
+          : `${entity.kind} · ${entity.value}`
+      }
     >
-      <span className="break-all">{entity.value}</span>
+      <span className="break-all">{entity.displayValue ?? entity.value}</span>
       <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] opacity-80">
         {entity.kind}
       </span>

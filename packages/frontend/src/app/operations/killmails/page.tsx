@@ -1,10 +1,13 @@
 import { Activity, ArrowUpRight, Crosshair, Filter, ScrollText } from 'lucide-react'
 import Link from 'next/link'
 import { TESTNET_EXPLORER_URL } from '~~/config/network'
-import { accountUrl, transactionUrl } from '~~/helpers/network'
+import { transactionUrl } from '~~/helpers/network'
 import OperationsShell from '../../components/world/OperationsShell'
 import { getSqlClient } from '../../server/db/client.mjs'
-import { getKillmailSummary, listKillmailRecords } from '../../server/indexer/repository.mjs'
+import {
+  getKillmailSummary,
+  listKillmailRecordsWithUsernames,
+} from '../../server/indexer/repository.mjs'
 
 const STATUS_OPTIONS = [
   { value: null, label: 'All' },
@@ -35,6 +38,9 @@ type KillmailRecord = {
   killerWalletAddress: string | null
   victimWalletAddress: string | null
   reportedByWalletAddress: string | null
+  killerUsername: string | null
+  victimUsername: string | null
+  reportedByUsername: string | null
   resolutionStatus: 'resolved' | 'pending'
   resolutionError: string | null
   resolvedAt: string | null
@@ -90,7 +96,15 @@ function truncateValue(value: string, start = 10, end = 8) {
   return `${value.slice(0, start)}...${value.slice(-end)}`
 }
 
-function formatPartyLabel(walletAddress: string | null, characterItemId: string) {
+function formatPartyLabel(
+  username: string | null,
+  walletAddress: string | null,
+  characterItemId: string
+) {
+  if (username) {
+    return username
+  }
+
   return walletAddress ? truncateValue(walletAddress, 10, 6) : `Character ${characterItemId}`
 }
 
@@ -141,7 +155,7 @@ export default async function KillmailsPage({
     KillmailRecord[],
   ] = await Promise.all([
     getKillmailSummary(sql),
-    listKillmailRecords(sql, { status, limit: 40 }),
+    listKillmailRecordsWithUsernames(sql, { status, limit: 40 }),
   ])
 
   const selectedKillmail =
@@ -288,6 +302,7 @@ export default async function KillmailsPage({
                           </span>
                           <span className="font-data text-sm text-slate-700 dark:text-slate-200">
                             {formatPartyLabel(
+                              record.victimUsername,
                               record.victimWalletAddress,
                               record.victimCharacterItemId
                             )}
@@ -300,6 +315,7 @@ export default async function KillmailsPage({
                           </span>
                           <span className="font-data text-sm text-slate-700 dark:text-slate-200">
                             {formatPartyLabel(
+                              record.killerUsername,
                               record.killerWalletAddress,
                               record.killerCharacterItemId
                             )}
@@ -380,25 +396,24 @@ export default async function KillmailsPage({
                       </div>
                       <div className="mt-2">
                         {selectedKillmail.victimWalletAddress ? (
-                          <a
-                            href={accountUrl(
-                              TESTNET_EXPLORER_URL,
-                              selectedKillmail.victimWalletAddress
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            href={`/history/${encodeURIComponent(selectedKillmail.victimWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {truncateValue(selectedKillmail.victimWalletAddress, 10, 6)}
-                          </a>
+                            {selectedKillmail.victimUsername ??
+                              truncateValue(selectedKillmail.victimWalletAddress, 10, 6)}
+                          </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">
-                            Character {selectedKillmail.victimCharacterItemId}
+                            {selectedKillmail.victimUsername ??
+                              `Character ${selectedKillmail.victimCharacterItemId}`}
                           </div>
                         )}
                       </div>
                       <div className="font-data mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Character {selectedKillmail.victimCharacterItemId}
+                        {selectedKillmail.victimWalletAddress
+                          ? truncateValue(selectedKillmail.victimWalletAddress, 10, 6)
+                          : `Character ${selectedKillmail.victimCharacterItemId}`}
                       </div>
                     </div>
 
@@ -408,25 +423,24 @@ export default async function KillmailsPage({
                       </div>
                       <div className="mt-2">
                         {selectedKillmail.killerWalletAddress ? (
-                          <a
-                            href={accountUrl(
-                              TESTNET_EXPLORER_URL,
-                              selectedKillmail.killerWalletAddress
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            href={`/history/${encodeURIComponent(selectedKillmail.killerWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {truncateValue(selectedKillmail.killerWalletAddress, 10, 6)}
-                          </a>
+                            {selectedKillmail.killerUsername ??
+                              truncateValue(selectedKillmail.killerWalletAddress, 10, 6)}
+                          </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">
-                            Character {selectedKillmail.killerCharacterItemId}
+                            {selectedKillmail.killerUsername ??
+                              `Character ${selectedKillmail.killerCharacterItemId}`}
                           </div>
                         )}
                       </div>
                       <div className="font-data mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Character {selectedKillmail.killerCharacterItemId}
+                        {selectedKillmail.killerWalletAddress
+                          ? truncateValue(selectedKillmail.killerWalletAddress, 10, 6)
+                          : `Character ${selectedKillmail.killerCharacterItemId}`}
                       </div>
                     </div>
 
@@ -445,25 +459,24 @@ export default async function KillmailsPage({
                       </div>
                       <div className="mt-2">
                         {selectedKillmail.reportedByWalletAddress ? (
-                          <a
-                            href={accountUrl(
-                              TESTNET_EXPLORER_URL,
-                              selectedKillmail.reportedByWalletAddress
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            href={`/history/${encodeURIComponent(selectedKillmail.reportedByWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {truncateValue(selectedKillmail.reportedByWalletAddress, 10, 6)}
-                          </a>
+                            {selectedKillmail.reportedByUsername ??
+                              truncateValue(selectedKillmail.reportedByWalletAddress, 10, 6)}
+                          </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">
-                            Character {selectedKillmail.reportedByCharacterItemId}
+                            {selectedKillmail.reportedByUsername ??
+                              `Character ${selectedKillmail.reportedByCharacterItemId}`}
                           </div>
                         )}
                       </div>
                       <div className="font-data mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Character {selectedKillmail.reportedByCharacterItemId}
+                        {selectedKillmail.reportedByWalletAddress
+                          ? truncateValue(selectedKillmail.reportedByWalletAddress, 10, 6)
+                          : `Character ${selectedKillmail.reportedByCharacterItemId}`}
                       </div>
                     </div>
                   </div>

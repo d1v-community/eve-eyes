@@ -5,6 +5,7 @@ import {
   getKillmailSummary,
   listBuildingLeaderboard,
   listKillmailRecords,
+  listKillmailRecordsWithUsernames,
 } from '../src/app/server/indexer/repository.mjs'
 
 test('getModuleCallCounts returns empty counts when table is missing', async () => {
@@ -225,4 +226,139 @@ test('listKillmailRecords maps killmail rows and applies the status filter', asy
   assert.match(calls[0].text, /WHERE resolution_status =/)
   assert.equal(calls[0].values[0], 'resolved')
   assert.equal(calls[0].values[1], 20)
+})
+
+test('listKillmailRecordsWithUsernames enriches parties with usernames', async () => {
+  let callCount = 0
+  const sql = async (strings, ...values) => {
+    callCount += 1
+    const text = strings.join(' ')
+
+    if (text.includes('FROM killmail_records')) {
+      return [
+        {
+          tenant: 'utopia',
+          killmail_item_id: '9000000001',
+          tx_digest: '8R8Y2mExampleDigest',
+          event_seq: '0',
+          tx_checkpoint: '802110',
+          tx_timestamp: '2026-03-27T15:37:00.000Z',
+          kill_timestamp: '2026-03-27T15:37:00.000Z',
+          kill_timestamp_unix: '1774625820',
+          loss_type: 'frigate',
+          solar_system_id: '31000142',
+          killer_character_item_id: '2112000108',
+          victim_character_item_id: '2112000113',
+          reported_by_character_item_id: '2112000108',
+          killer_wallet_address:
+            '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+          victim_wallet_address:
+            '0xff0932fca8fa5ce33289f347278b2fc1201fbfa0f91aac76912a7f5e161b0f47',
+          reported_by_wallet_address:
+            '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+          resolution_status: 'resolved',
+          resolution_error: null,
+          resolved_at: '2026-03-27T15:38:00.000Z',
+          raw_event: { id: 'event-1' },
+        },
+      ]
+    }
+
+    if (text.includes('FROM suiscan_move_calls AS smc')) {
+      return [
+        {
+          id: 1,
+          tx_digest: 'tx-1',
+          call_index: 0,
+          raw_call: {
+            arguments: [
+              { Input: 1 },
+              { Input: 0 },
+              { Input: 2 },
+              { Input: 3 },
+              { Input: 4 },
+              { Input: 5 },
+              { Input: 6 },
+            ],
+          },
+          transaction_time: '2026-03-27T15:00:00.000Z',
+          raw_content: {
+            transaction: {
+              data: {
+                transaction: {
+                  kind: 'ProgrammableTransaction',
+                  inputs: [
+                    { type: 'object', objectId: '0xadmin' },
+                    { type: 'object', objectId: '0xregistry' },
+                    { type: 'pure', value: 2112000108, valueType: 'u32' },
+                    { type: 'pure', value: 'utopia', valueType: '0x1::string::String' },
+                    { type: 'pure', value: 1000167, valueType: 'u32' },
+                    {
+                      type: 'pure',
+                      value:
+                        '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+                      valueType: 'address',
+                    },
+                    { type: 'pure', value: 'killer-name', valueType: '0x1::string::String' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        {
+          id: 2,
+          tx_digest: 'tx-2',
+          call_index: 0,
+          raw_call: {
+            arguments: [
+              { Input: 1 },
+              { Input: 0 },
+              { Input: 2 },
+              { Input: 3 },
+              { Input: 4 },
+              { Input: 5 },
+              { Input: 6 },
+            ],
+          },
+          transaction_time: '2026-03-27T14:00:00.000Z',
+          raw_content: {
+            transaction: {
+              data: {
+                transaction: {
+                  kind: 'ProgrammableTransaction',
+                  inputs: [
+                    { type: 'object', objectId: '0xadmin' },
+                    { type: 'object', objectId: '0xregistry' },
+                    { type: 'pure', value: 2112000113, valueType: 'u32' },
+                    { type: 'pure', value: 'utopia', valueType: '0x1::string::String' },
+                    { type: 'pure', value: 1000167, valueType: 'u32' },
+                    {
+                      type: 'pure',
+                      value:
+                        '0xff0932fca8fa5ce33289f347278b2fc1201fbfa0f91aac76912a7f5e161b0f47',
+                      valueType: 'address',
+                    },
+                    { type: 'pure', value: 'victim-name', valueType: '0x1::string::String' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ]
+    }
+
+    throw new Error(`Unexpected query: ${text} :: ${values.join(',')}`)
+  }
+
+  const rows = await listKillmailRecordsWithUsernames(sql, {
+    status: 'resolved',
+    limit: 20,
+  })
+
+  assert.equal(callCount >= 2, true)
+  assert.equal(rows[0].killerUsername, 'killer-name')
+  assert.equal(rows[0].victimUsername, 'victim-name')
+  assert.equal(rows[0].reportedByUsername, 'killer-name')
 })
