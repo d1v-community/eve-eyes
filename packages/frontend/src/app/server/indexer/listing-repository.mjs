@@ -58,6 +58,120 @@ export function parseMoveCallFilters(searchParams) {
   }
 }
 
+function parseJsonValue(value) {
+  if (value == null) {
+    return null
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  return value
+}
+
+function getProgrammableTransaction(rawContent) {
+  return rawContent?.transaction?.data?.transaction?.kind === 'ProgrammableTransaction'
+    ? rawContent.transaction.data.transaction
+    : null
+}
+
+function resolveInput(input) {
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+
+  if (input.type === 'pure') {
+    return {
+      kind: 'pure',
+      value: input.value,
+      valueType: input.valueType ?? null,
+    }
+  }
+
+  if (input.type === 'object') {
+    return {
+      kind: 'object',
+      objectId: input.objectId ?? null,
+      objectType: input.objectType ?? null,
+      mutable: input.mutable ?? null,
+    }
+  }
+
+  return input
+}
+
+function resolveArgument(argument, inputs) {
+  if (!argument || typeof argument !== 'object') {
+    return null
+  }
+
+  if ('Input' in argument) {
+    return resolveInput(inputs?.[argument.Input])
+  }
+
+  return argument
+}
+
+function resolveArguments(rawCall, rawContent) {
+  const parsedRawCall = parseJsonValue(rawCall)
+  const parsedRawContent = parseJsonValue(rawContent)
+  const inputs = getProgrammableTransaction(parsedRawContent)?.inputs ?? []
+  const argumentsList = Array.isArray(parsedRawCall?.arguments) ? parsedRawCall.arguments : []
+
+  return argumentsList.map((argument) => resolveArgument(argument, inputs))
+}
+
+function getPureValue(argumentsList, index) {
+  const value = argumentsList[index]
+
+  if (value && typeof value === 'object' && value.kind === 'pure') {
+    return value.value
+  }
+
+  return null
+}
+
+function normalizeAddress(value) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim().toLowerCase() : null
+}
+
+function normalizeText(value) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function normalizeNumberLike(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim()
+  }
+
+  return null
+}
+
+function parseCreateCharacterMoveCall(row) {
+  const argumentsList = resolveArguments(row.raw_call, row.raw_content)
+
+  return {
+    id: String(row.id),
+    txDigest: row.tx_digest,
+    callIndex: row.call_index,
+    transactionTime: row.transaction_time,
+    userId: normalizeNumberLike(getPureValue(argumentsList, 2)),
+    tenant: normalizeText(getPureValue(argumentsList, 3)),
+    tribeId: normalizeNumberLike(getPureValue(argumentsList, 4)),
+    walletAddress: normalizeAddress(getPureValue(argumentsList, 5)),
+    username: normalizeText(getPureValue(argumentsList, 6)),
+  }
+}
+
 export async function listTransactionBlocks(sql, input) {
   const conditions = []
   const params = []
@@ -394,4 +508,39 @@ export async function getMoveCallByTxDigestAndCallIndex(sql, txDigest, callIndex
     status: row.status,
     checkpoint: row.checkpoint,
   })
+}
+
+export async function listCharacterCreations(sql, input) {
+  const rows = await sql.unsafe(
+    `
+      SELECT
+        smc.id,
+        smc.tx_digest,
+        smc.call_index,
+        smc.raw_call,
+        smc.transaction_time,
+        t.raw_content
+      FROM suiscan_move_calls AS smc
+      LEFT JOIN transaction_blocks AS t
+        ON t.digest = smc.tx_digest
+      WHERE smc.module_name = 'character'
+        AND smc.function_name = 'create_character'
+      ORDER BY smc.transaction_time DESC NULLS LAST, smc.id DESC
+      LIMIT $1
+      OFFSET $2
+    `,
+    [input.pageSize, input.offset]
+  )
+
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM suiscan_move_calls
+    WHERE module_name = 'character'
+      AND function_name = 'create_character'
+  `
+
+  return {
+    items: rows.map((row) => parseCreateCharacterMoveCall(row)),
+    total: countRows[0]?.total ?? 0,
+  }
 }

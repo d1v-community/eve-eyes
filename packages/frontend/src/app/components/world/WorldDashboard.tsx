@@ -105,7 +105,7 @@ export default async function WorldDashboard() {
     listConstellations(),
     listShips(),
     listTypes(),
-    listTribes(),
+    listTribes(6),
     listMyJumps(),
   ])
 

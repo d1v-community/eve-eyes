@@ -9,6 +9,7 @@ const POLL_INTERVAL_MS = 5000
 const GROWTH_FLASH_MS = 1800
 const COUNT_UP_DURATION_MS = 1200
 const MODULE_DETAIL_HREFS: Record<string, string> = {
+  character: '/indexer/character-creations',
   killmail: '/operations/killmails',
 }
 
@@ -16,6 +17,8 @@ type ModuleCallCountItem = {
   moduleName: string
   callCount: number
   latestTransactionTime: string | null
+  spotlightFunctionName?: string | null
+  spotlightFunctionCount?: number
 }
 
 type ModuleCallCountsResponse = {
@@ -54,6 +57,10 @@ function formatLatestTransactionTime(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
+}
+
+function formatFunctionName(value: string) {
+  return value.replaceAll('_', ' ')
 }
 
 export default function ModuleCallCountsLive({
@@ -466,6 +473,12 @@ export default function ModuleCallCountsLive({
                     ? 'Resolving local time...'
                     : 'No data yet'}
               </p>
+              {module.spotlightFunctionName && (module.spotlightFunctionCount ?? 0) > 0 ? (
+                <p className="relative mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  Key function: {formatFunctionName(module.spotlightFunctionName)}{' '}
+                  {numberFormatter.format(module.spotlightFunctionCount ?? 0)}
+                </p>
+              ) : null}
               {detailHref ? (
                 <div className="relative mt-3 font-display text-[10px] uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
                   View details

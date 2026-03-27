@@ -40,13 +40,14 @@ export async function GET() {
       getWorldConfig(),
       listShips(1),
       listTypes(1),
-      listTribes(1),
+      listTribes(6),
       listMyJumps(24),
     ])
 
     const podKey = configResult.data?.[0]?.podPublicSigningKey
     const jumpError = jumpsResult.error
     const jumpTotal = jumpsResult.data?.metadata.total ?? 0
+    const visibleTribeCount = tribesResult.data?.data.length ?? 0
 
     const modules: ModuleSummaryItem[] = [
       {
@@ -103,7 +104,7 @@ export async function GET() {
         href: '/tribes',
         description:
           'Keep a compact intel board for tribe tags, tax, and links.',
-        metric: `${tribesResult.data?.metadata.total ?? 0} tribes`,
+        metric: `${visibleTribeCount} tribes`,
         supporting:
           tribesResult.data?.data[0] != null
             ? `Sample tag ${tribesResult.data.data[0].nameShort} with tax rate ${Math.round(

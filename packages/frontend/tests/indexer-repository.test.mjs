@@ -16,9 +16,7 @@ test('getModuleCallCounts returns empty counts when table is missing', async () 
 
   const modules = await getModuleCallCounts(sql)
 
-  assert.equal(modules.length, 20)
-  assert.ok(modules.every((module) => module.callCount === 0))
-  assert.ok(modules.every((module) => module.latestTransactionTime === null))
+  assert.deepEqual(modules, [])
 })
 
 test('getModuleCallCounts returns empty counts when the database connection resets', async () => {
@@ -30,9 +28,65 @@ test('getModuleCallCounts returns empty counts when the database connection rese
 
   const modules = await getModuleCallCounts(sql)
 
-  assert.equal(modules.length, 20)
-  assert.ok(modules.every((module) => module.callCount === 0))
-  assert.ok(modules.every((module) => module.latestTransactionTime === null))
+  assert.deepEqual(modules, [])
+})
+
+test('getModuleCallCounts filters zero-count modules and includes spotlight functions', async () => {
+  const sql = async (strings) => {
+    const text = strings.join(' ')
+
+    if (text.includes('GROUP BY module_name, function_name')) {
+      return [
+        {
+          module_name: 'character',
+          function_name: 'borrow_owner_cap',
+          call_count: 5577,
+        },
+        {
+          module_name: 'character',
+          function_name: 'create_character',
+          call_count: 386,
+        },
+        {
+          module_name: 'network_node',
+          function_name: 'share_network_node',
+          call_count: 420,
+        },
+      ]
+    }
+
+    return [
+      {
+        module_name: 'network_node',
+        call_count: 1000,
+        latest_transaction_time: '2026-03-28T02:30:00.000Z',
+      },
+      {
+        module_name: 'character',
+        call_count: 500,
+        latest_transaction_time: '2026-03-28T02:27:00.000Z',
+      },
+    ]
+  }
+
+  const modules = await getModuleCallCounts(sql)
+
+  assert.deepEqual(modules, [
+    {
+      moduleName: 'network_node',
+      callCount: 1000,
+      latestTransactionTime: '2026-03-28T02:30:00.000Z',
+      spotlightFunctionName: 'share_network_node',
+      spotlightFunctionCount: 420,
+    },
+    {
+      moduleName: 'character',
+      callCount: 500,
+      latestTransactionTime: '2026-03-28T02:27:00.000Z',
+      spotlightFunctionName: 'create_character',
+      spotlightFunctionCount: 386,
+    },
+  ])
 })
 
 test('listBuildingLeaderboard maps grouped owner rows and includes the module filter', async () => {

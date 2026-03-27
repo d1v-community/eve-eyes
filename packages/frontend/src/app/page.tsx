@@ -36,13 +36,14 @@ export default async function Home() {
       listConstellations(12),
       listShips(1),
       listTypes(1),
-      listTribes(1),
+      listTribes(6),
       listMyJumps(24),
       getModuleCallCounts(getSqlClient()),
     ])
 
   const totalSystems = solarSystemsResult.data?.metadata.total ?? 0
   const totalConstellations = constellationsResult.data?.metadata.total ?? 0
+  const visibleTribeCount = tribesResult.data?.data.length ?? 0
   const signingKey = configResult.data?.[0]?.podPublicSigningKey
   const jumpsLocked = jumpsResult.error === 'Missing WORLD_API_BEARER_TOKEN'
 
@@ -179,7 +180,7 @@ export default async function Home() {
                         </span>
                       </div>
                       <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                        {tribesResult.data?.metadata.total ?? 0} tribes
+                        {visibleTribeCount} tribes
                       </div>
                       <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
                         {tribesResult.data?.data[0] != null

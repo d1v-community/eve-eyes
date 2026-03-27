@@ -21,6 +21,10 @@ const INDEXER_MODULES = [
   'world',
 ]
 
+const MODULE_SPOTLIGHT_FUNCTIONS = {
+  character: 'create_character',
+}
+
 const PACKAGE_ID =
   '0xd12a70c74c1e759445d6f209b01d43d860e97fcf2ef72ccbbd00afd828043f75'
 
@@ -29,11 +33,7 @@ export function listIndexerModules() {
 }
 
 function buildEmptyModuleCallCounts() {
-  return INDEXER_MODULES.map((moduleName) => ({
-    moduleName,
-    callCount: 0,
-    latestTransactionTime: null,
-  }))
+  return []
 }
 
 function buildEmptyKillmailSummary() {
@@ -65,6 +65,7 @@ function isTransientConnectionError(error) {
 
 export async function getModuleCallCounts(sql) {
   let rows
+  let functionRows
 
   try {
     rows = await sql`
@@ -75,6 +76,16 @@ export async function getModuleCallCounts(sql) {
       FROM suiscan_move_calls
       WHERE package_id = ${PACKAGE_ID}
       GROUP BY module_name
+    `
+
+    functionRows = await sql`
+      SELECT
+        module_name,
+        function_name,
+        COUNT(*)::int AS call_count
+      FROM suiscan_move_calls
+      WHERE package_id = ${PACKAGE_ID}
+      GROUP BY module_name, function_name
     `
   } catch (error) {
     if (isMissingRelationError(error)) {
@@ -101,15 +112,51 @@ export async function getModuleCallCounts(sql) {
     ])
   )
 
+  const functionRowsByModuleName = new Map()
+
+  for (const row of functionRows) {
+    const moduleName = row.module_name
+    const items = functionRowsByModuleName.get(moduleName) ?? []
+    items.push({
+      functionName: row.function_name,
+      callCount: row.call_count,
+    })
+    functionRowsByModuleName.set(moduleName, items)
+  }
+
   return INDEXER_MODULES.map((moduleName) => {
     const row = rowByModuleName.get(moduleName)
+    const moduleFunctions = functionRowsByModuleName.get(moduleName) ?? []
+    const spotlightFunctionName = MODULE_SPOTLIGHT_FUNCTIONS[moduleName] ?? null
+    const spotlightFunction =
+      spotlightFunctionName == null
+        ? null
+        : moduleFunctions.find(
+            (moduleFunction) => moduleFunction.functionName === spotlightFunctionName
+          ) ?? null
+    const topFunction =
+      moduleFunctions.length === 0
+        ? null
+        : [...moduleFunctions].sort((left, right) => {
+            if (right.callCount !== left.callCount) {
+              return right.callCount - left.callCount
+            }
+
+            return left.functionName.localeCompare(right.functionName)
+          })[0]
 
     return {
       moduleName,
       callCount: row?.callCount ?? 0,
       latestTransactionTime: row?.latestTransactionTime ?? null,
+      spotlightFunctionName:
+        spotlightFunction?.functionName ?? topFunction?.functionName ?? null,
+      spotlightFunctionCount:
+        spotlightFunction?.callCount ?? topFunction?.callCount ?? 0,
     }
-  }).sort((left, right) => {
+  })
+    .filter((module) => module.callCount > 0)
+    .sort((left, right) => {
     if (right.callCount !== left.callCount) {
       return right.callCount - left.callCount
     }
