@@ -32,10 +32,36 @@ async function getPendingDerivedRecordCount() {
   }
 }
 
-function startSyncProcess(limit, resolveLimit, reconcileLimit, logger) {
+function isTransientWatcherError(error) {
+  const code =
+    error && typeof error === 'object' && 'code' in error ? error.code : null
+  const message =
+    error instanceof Error ? error.message : String(error ?? 'unknown error')
+
+  return (
+    code === 'ECONNRESET' ||
+    code === 'CONNECTION_CLOSED' ||
+    message.includes('ECONNRESET') ||
+    message.includes('CONNECTION_CLOSED')
+  )
+}
+
+function startSyncProcess(
+  limit,
+  resolveLimit,
+  reconcileLimit,
+  concurrency,
+  logger
+) {
   const child = spawn(
     process.execPath,
-    [syncScriptPath, String(limit), String(resolveLimit), '6', String(reconcileLimit)],
+    [
+      syncScriptPath,
+      String(limit),
+      String(resolveLimit),
+      String(concurrency),
+      String(reconcileLimit),
+    ],
     {
       cwd: packageRoot,
       stdio: 'inherit',
@@ -48,6 +74,7 @@ function startSyncProcess(limit, resolveLimit, reconcileLimit, logger) {
     limit,
     resolveLimit,
     reconcileLimit,
+    concurrency,
   })
 
   return child
@@ -62,15 +89,31 @@ async function main() {
   const limit = Number.parseInt(process.argv[2] ?? '250', 10)
   const resolveLimit = Number.parseInt(process.argv[3] ?? '500', 10)
   const reconcileLimit = Number.parseInt(process.argv[4] ?? '100', 10)
-  const checkIntervalMs = 90000
+  const concurrency = Number.parseInt(
+    process.argv[5] ?? process.env.DERIVED_SYNC_CONCURRENCY ?? '4',
+    10
+  )
+  const checkIntervalMs = Number.parseInt(
+    process.argv[6] ?? process.env.DERIVED_SYNC_CHECK_INTERVAL_MS ?? '15000',
+    10
+  )
   let child = null
 
   if (
-    [limit, resolveLimit, reconcileLimit].some(
-      (value) => Number.isNaN(value) || value <= 0
-    )
+    Number.isNaN(limit) ||
+    limit <= 0 ||
+    Number.isNaN(concurrency) ||
+    concurrency <= 0 ||
+    Number.isNaN(resolveLimit) ||
+    resolveLimit < 0 ||
+    Number.isNaN(reconcileLimit) ||
+    reconcileLimit < 0 ||
+    Number.isNaN(checkIntervalMs) ||
+    checkIntervalMs <= 0
   ) {
-    throw new Error('limit, resolveLimit, and reconcileLimit must be positive integers')
+    throw new Error(
+      'limit, concurrency, and checkIntervalMs must be positive integers; resolveLimit and reconcileLimit must be non-negative integers'
+    )
   }
 
   process.on('SIGINT', () => {
@@ -90,7 +133,18 @@ async function main() {
   })
 
   while (true) {
-    const pendingCount = await getPendingDerivedRecordCount()
+    let pendingCount
+
+    try {
+      pendingCount = await getPendingDerivedRecordCount()
+    } catch (error) {
+      logger.error('pending derived-record check failed', {
+        message: error instanceof Error ? error.message : String(error),
+        transient: isTransientWatcherError(error),
+      })
+      await delay(checkIntervalMs)
+      continue
+    }
 
     logger.info('pending derived-record check', {
       pendingCount,
@@ -102,7 +156,13 @@ async function main() {
       (pendingCount > 0 || reconcileLimit > 0) &&
       (!child || child.exitCode !== null || child.killed)
     ) {
-      child = startSyncProcess(limit, resolveLimit, reconcileLimit, logger)
+      child = startSyncProcess(
+        limit,
+        resolveLimit,
+        reconcileLimit,
+        concurrency,
+        logger
+      )
     }
 
     await delay(checkIntervalMs)

@@ -59,12 +59,17 @@ async function main() {
   )
 
   if (
-    [limit, resolveLimit, concurrency, reconcileLimit].some(
-      (value) => Number.isNaN(value) || value <= 0
-    )
+    Number.isNaN(limit) ||
+    limit <= 0 ||
+    Number.isNaN(concurrency) ||
+    concurrency <= 0 ||
+    Number.isNaN(resolveLimit) ||
+    resolveLimit < 0 ||
+    Number.isNaN(reconcileLimit) ||
+    reconcileLimit < 0
   ) {
     throw new Error(
-      'limit, resolveLimit, concurrency, and reconcileLimit must be positive integers'
+      'limit and concurrency must be positive integers; resolveLimit and reconcileLimit must be non-negative integers'
     )
   }
 
