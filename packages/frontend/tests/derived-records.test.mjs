@@ -5,6 +5,8 @@ import {
   extractBuildingInstanceSnapshot,
   extractBuildingObjectChanges,
   extractBuildingOwnerCapChanges,
+  extractOwnerCapOwnerCharacterObjectId,
+  extractOwnerCharacterObjectIdFromOwner,
   extractCharacterCreatedSnapshots,
   extractCharacterIdentitySnapshot,
   extractCharacterObjectChanges,
@@ -128,7 +130,7 @@ test('extractBuildingOwnerCapChanges keeps owner caps for supported building typ
         objectId:
           '0x9b0153aa6f64dd8abf0a971a48bb3c4ce0cfff625c330c8cb862eebb15b3eefc',
         owner: {
-          AddressOwner:
+          ObjectOwner:
             '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
         },
       },
@@ -155,6 +157,40 @@ test('extractBuildingOwnerCapChanges keeps owner caps for supported building typ
         '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
     },
   ])
+})
+
+test('extractOwnerCharacterObjectIdFromOwner only accepts ObjectOwner values', () => {
+  assert.equal(
+    extractOwnerCharacterObjectIdFromOwner({
+      ObjectOwner:
+        '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+      AddressOwner:
+        '0x194d8faf60f2fd1551abae29f1f056ad43a386d305a11a904acbd35ef7f72b67',
+    }),
+    '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713'
+  )
+
+  assert.equal(
+    extractOwnerCharacterObjectIdFromOwner({
+      AddressOwner:
+        '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+    }),
+    null
+  )
+})
+
+test('extractOwnerCapOwnerCharacterObjectId reads owner from getObject-style payloads', () => {
+  assert.equal(
+    extractOwnerCapOwnerCharacterObjectId({
+      data: {
+        owner: {
+          ObjectOwner:
+            '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713',
+        },
+      },
+    }),
+    '0x3897123d97f896082568bab05f45b58e77290ee3f00a8d8ec221d1a0a3d28713'
+  )
 })
 
 test('extractBuildingInstanceSnapshot parses building identity, type, and status', () => {

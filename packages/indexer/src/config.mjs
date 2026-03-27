@@ -80,6 +80,10 @@ export function getIndexerConfig() {
     rpcBatchSize: readInteger('SUI_INDEXER_RPC_BATCH_SIZE', 20),
     processConcurrency: readInteger('SUI_INDEXER_PROCESS_CONCURRENCY', 4),
     cycleErrorDelayMs: readInteger('SUI_INDEXER_CYCLE_ERROR_DELAY_MS', 3000),
+    compensationPollIntervalMs: readInteger(
+      'SUI_INDEXER_COMPENSATION_POLL_INTERVAL_MS',
+      60000
+    ),
     digestCacheLimit: readInteger('SUI_INDEXER_DIGEST_CACHE_LIMIT', 5000),
     stateFilePath:
       process.env.SUI_INDEXER_STATE_FILE ??

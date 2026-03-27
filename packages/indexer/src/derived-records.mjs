@@ -114,6 +114,16 @@ function findBuildingModuleNameByObjectType(objectType, packageId) {
   )
 }
 
+export function extractOwnerCharacterObjectIdFromOwner(owner) {
+  return normalizeOptionalText(owner?.ObjectOwner)
+}
+
+export function extractOwnerCapOwnerCharacterObjectId(value) {
+  const details = value?.details ?? value?.data ?? value
+
+  return extractOwnerCharacterObjectIdFromOwner(details?.owner ?? null)
+}
+
 function getNestedVariant(value, depth = 4) {
   if (depth < 0 || value == null) {
     return null
@@ -387,7 +397,7 @@ export function extractBuildingOwnerCapChanges(objectChanges, packageId) {
 
     const [moduleName] = matchedEntry
     const ownerCapId = normalizeOptionalText(change?.objectId)
-    const ownerCharacterObjectId = normalizeOptionalText(change?.owner?.AddressOwner)
+    const ownerCharacterObjectId = extractOwnerCapOwnerCharacterObjectId(change)
 
     if (!ownerCapId) {
       return []
@@ -601,6 +611,16 @@ async function refreshCurrentCharacterIdentityRows(transaction, snapshot) {
 }
 
 export async function upsertCharacterIdentity(transaction, snapshot, source) {
+  await transaction`
+    SELECT pg_advisory_xact_lock(hashtextextended(${snapshot.characterObjectId}, 0))
+  `
+
+  await transaction`
+    SELECT pg_advisory_xact_lock(
+      hashtextextended(${`${snapshot.tenant}:${snapshot.characterItemId}`}, 0)
+    )
+  `
+
   const nextRow = await findNextCharacterIdentityRow(transaction, snapshot, source)
 
   await transaction`
@@ -811,6 +831,27 @@ export async function closeBuildingInstance(transaction, input) {
       last_seen_at = GREATEST(last_seen_at, ${input.sourceTxTimestamp}),
       updated_at = NOW()
     WHERE building_object_id = ${input.buildingObjectId}
+  `
+}
+
+export async function reconcileBuildingInstanceState(transaction, input) {
+  await transaction`
+    UPDATE building_instances
+    SET
+      status = COALESCE(${input.status ?? null}, status),
+      is_active = ${input.isActive},
+      last_reconciled_at = NOW(),
+      updated_at = NOW()
+    WHERE id = ${input.id}
+  `
+}
+
+export async function markBuildingInstanceReconciled(transaction, input) {
+  await transaction`
+    UPDATE building_instances
+    SET
+      last_reconciled_at = NOW()
+    WHERE id = ${input.id}
   `
 }
 

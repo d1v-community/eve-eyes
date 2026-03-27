@@ -7,6 +7,7 @@ import {
   queryModuleEvents,
   resolvePackageModules,
 } from './sui.mjs'
+import { getModuleCursor, readState, writeModuleCursor } from './cursor-store.mjs'
 import {
   bootstrapIndexerEnv,
   getMigrationsDirectory,
@@ -86,73 +87,137 @@ async function processDigest(sql, client, config, logger, digest) {
   return result
 }
 
-async function runPollingFallback(sql, client, config, logger, modules, seenDigests, webhookUrl) {
+async function bootstrapCompensationCursors(client, config, logger, modules) {
+  let state = await readState(config)
   const moduleCursors = new Map()
 
   for (const moduleName of modules) {
-    const cursor = await getLatestModuleEventCursor(client, config, moduleName)
+    let cursor = getModuleCursor(state, moduleName)
+
+    if (cursor == null && config.initialCursorMode === 'latest') {
+      cursor = await getLatestModuleEventCursor(client, config, moduleName)
+      state = await writeModuleCursor(config, state, moduleName, cursor)
+    }
+
     moduleCursors.set(moduleName, cursor)
 
-    logger.info('bootstrapped module cursor to latest event', {
+    logger.info('bootstrapped compensation cursor', {
       moduleName,
       cursor,
+      source: getModuleCursor(state, moduleName) ? 'state' : config.initialCursorMode,
     })
   }
 
-  while (true) {
+  return {
+    state,
+    moduleCursors,
+  }
+}
+
+async function runCompensationPolling(
+  sql,
+  client,
+  config,
+  logger,
+  modules,
+  seenDigests,
+  inflightDigests,
+  webhookUrl,
+  shouldStop
+) {
+  const bootstrap = await bootstrapCompensationCursors(client, config, logger, modules)
+  let state = bootstrap.state
+  const moduleCursors = bootstrap.moduleCursors
+
+  logger.info('starting compensation polling', {
+    moduleCount: modules.length,
+    pollIntervalMs: config.compensationPollIntervalMs,
+    stateFilePath: config.stateFilePath,
+    initialCursorMode: config.initialCursorMode,
+  })
+
+  while (!shouldStop()) {
     let storedTransactionCount = 0
 
     for (const moduleName of modules) {
-      const cursor = moduleCursors.get(moduleName) ?? null
+      while (!shouldStop()) {
+        const cursor = moduleCursors.get(moduleName) ?? null
+        let page
 
-      if (cursor === null) {
-        continue
-      }
+        try {
+          page = await queryModuleEvents(client, config, moduleName, cursor)
+        } catch (error) {
+          logger.error(`compensation polling failed for module ${moduleName}`, error)
+          break
+        }
 
-      try {
-        const page = await queryModuleEvents(client, config, moduleName, cursor)
         const events = page?.data ?? []
 
         if (events.length === 0) {
-          continue
+          break
         }
 
         const pageDigests = [
           ...new Set(events.map((event) => event?.id?.txDigest).filter(Boolean)),
         ]
-        const digests = pageDigests.filter((digest) => !seenDigests.has(digest))
+        let pageStoredTransactionCount = 0
 
-        for (const digest of digests) {
-          seenDigests.add(digest)
-          const result = await processDigest(sql, client, config, logger, digest)
-          await sendWebhookNotification(webhookUrl, config, result, logger)
-          storedTransactionCount += 1
+        for (const digest of pageDigests) {
+          if (!digest || inflightDigests.has(digest) || seenDigests.has(digest)) {
+            continue
+          }
+
+          inflightDigests.add(digest)
+
+          try {
+            seenDigests.add(digest)
+            const result = await processDigest(sql, client, config, logger, digest)
+            await sendWebhookNotification(webhookUrl, config, result, logger)
+
+            if (result.stored) {
+              storedTransactionCount += 1
+              pageStoredTransactionCount += 1
+            }
+          } catch (error) {
+            logger.error('failed to process compensation transaction', error)
+            seenDigests.delete(digest)
+          } finally {
+            inflightDigests.delete(digest)
+          }
         }
 
         const lastEvent = events.at(-1)
         const nextCursor = page?.nextCursor ?? lastEvent?.id ?? cursor
-        moduleCursors.set(moduleName, nextCursor)
 
-        logger.info('processed event page', {
+        moduleCursors.set(moduleName, nextCursor)
+        state = await writeModuleCursor(config, state, moduleName, nextCursor)
+
+        logger.info('processed compensation event page', {
           moduleName,
           eventCount: events.length,
           candidateTransactionCount: pageDigests.length,
-          storedTransactionCount: digests.length,
+          storedTransactionCount: pageStoredTransactionCount,
           latestEventDigest: lastEvent?.id?.txDigest ?? null,
           latestEventSequence: lastEvent?.id?.eventSeq ?? null,
           nextCursor,
         })
-      } catch (error) {
-        logger.error(`polling failed for module ${moduleName}`, error)
+
+        if (!page?.hasNextPage) {
+          break
+        }
       }
     }
 
-    logger.info('completed polling cycle', {
+    logger.info('completed compensation cycle', {
       moduleCount: modules.length,
       storedTransactionCount,
     })
 
-    await delay(config.pollIntervalMs)
+    if (shouldStop()) {
+      break
+    }
+
+    await delay(config.compensationPollIntervalMs)
   }
 }
 
@@ -220,6 +285,21 @@ async function main() {
       modules,
       webhookEnabled: Boolean(webhookUrl),
     })
+    const compensationPollingPromise = runCompensationPolling(
+      sql,
+      client,
+      config,
+      logger,
+      modules,
+      seenDigests,
+      inflightDigests,
+      webhookUrl,
+      () => shuttingDown
+    ).catch((error) => {
+      if (!shuttingDown) {
+        logger.error('compensation polling failed', error)
+      }
+    })
 
     try {
       unsubscribe = await Promise.race([
@@ -266,8 +346,11 @@ async function main() {
 
       await new Promise(() => {})
     } catch (error) {
-      logger.error('transaction subscription unavailable, falling back to polling', error)
-      await runPollingFallback(sql, client, config, logger, modules, seenDigests, webhookUrl)
+      logger.error(
+        'transaction subscription unavailable, continuing with compensation polling only',
+        error
+      )
+      await compensationPollingPromise
     }
   } finally {
     if (!shuttingDown) {

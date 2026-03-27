@@ -141,7 +141,12 @@ async function main() {
       killmailCount += result.killmailCount
     }
 
-    const buildingResolution = await resolvePendingBuildingInstances(sql, 500)
+    const buildingResolution = await resolvePendingBuildingInstances(
+      sql,
+      rpcPool,
+      config.packageId,
+      500
+    )
     const resolution = await resolvePendingKillmailRecords(sql, 500)
 
     logger.info('targeted derived-record sync completed', {
@@ -151,6 +156,10 @@ async function main() {
       buildingChangeCount,
       buildingOwnerCapChangeCount,
       resolvedBuildingOwnerCount: buildingResolution.resolvedCount,
+      resolvedBuildingOwnerObjectCount:
+        buildingResolution.resolvedOwnerCharacterObjectCount,
+      resolvedBuildingOwnerItemCount:
+        buildingResolution.resolvedOwnerCharacterItemCount,
       characterChangeCount,
       killmailCount,
       resolvedKillmailCount: resolution.resolvedCount,

@@ -12,6 +12,52 @@ const defaultRpcUrls = [
   getFullnodeUrl('testnet'),
 ]
 
+const DEFAULT_RPC_TIMEOUT_MS = 10_000
+
+export function normalizeRpcRequestTimeoutMs(value) {
+  if (value == null) {
+    return DEFAULT_RPC_TIMEOUT_MS
+  }
+
+  const normalized = String(value).trim()
+
+  if (!/^\d+$/.test(normalized)) {
+    return DEFAULT_RPC_TIMEOUT_MS
+  }
+
+  const timeoutMs = Number(normalized)
+
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    return DEFAULT_RPC_TIMEOUT_MS
+  }
+
+  return timeoutMs
+}
+
+export function applyRpcRequestTimeout(input, timeoutMs) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    return input
+  }
+
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+
+  if (!input?.signal) {
+    return {
+      ...input,
+      signal: timeoutSignal,
+    }
+  }
+
+  if (typeof AbortSignal.any === 'function') {
+    return {
+      ...input,
+      signal: AbortSignal.any([input.signal, timeoutSignal]),
+    }
+  }
+
+  return input
+}
+
 export function createLogger(scope) {
   return {
     info(message, details) {
@@ -55,6 +101,7 @@ export function getRpcUrls() {
 
 export function createRpcPool() {
   const urls = getRpcUrls()
+  const requestTimeoutMs = normalizeRpcRequestTimeoutMs(process.env.SUI_RPC_TIMEOUT_MS)
   const clients = urls.map((url) => ({
     url,
     client: new SuiClient({ url }),
@@ -72,7 +119,9 @@ export function createRpcPool() {
         const current = clients[currentIndex]
 
         try {
-          const result = await current.client.getTransactionBlock(input)
+          const result = await current.client.getTransactionBlock(
+            applyRpcRequestTimeout(input, requestTimeoutMs)
+          )
 
           return {
             result,
@@ -94,7 +143,9 @@ export function createRpcPool() {
         const current = clients[currentIndex]
 
         try {
-          const result = await current.client.multiGetTransactionBlocks(input)
+          const result = await current.client.multiGetTransactionBlocks(
+            applyRpcRequestTimeout(input, requestTimeoutMs)
+          )
 
           return {
             result,
@@ -116,7 +167,9 @@ export function createRpcPool() {
         const current = clients[currentIndex]
 
         try {
-          const result = await current.client.tryGetPastObject(input)
+          const result = await current.client.tryGetPastObject(
+            applyRpcRequestTimeout(input, requestTimeoutMs)
+          )
 
           return {
             result,
@@ -138,7 +191,9 @@ export function createRpcPool() {
         const current = clients[currentIndex]
 
         try {
-          const result = await current.client.getObject(input)
+          const result = await current.client.getObject(
+            applyRpcRequestTimeout(input, requestTimeoutMs)
+          )
 
           return {
             result,

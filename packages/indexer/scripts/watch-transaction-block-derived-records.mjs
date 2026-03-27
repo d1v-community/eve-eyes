@@ -9,6 +9,7 @@ import { createLogger } from './sui-rpc-sync-helpers.mjs'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const packageRoot = path.resolve(scriptDirectory, '..')
 const repoRoot = path.resolve(packageRoot, '..', '..')
+const frontendRoot = path.join(repoRoot, 'packages', 'frontend')
 const syncScriptPath = path.join(
   packageRoot,
   'scripts',
@@ -31,10 +32,10 @@ async function getPendingDerivedRecordCount() {
   }
 }
 
-function startSyncProcess(limit, resolveLimit, logger) {
+function startSyncProcess(limit, resolveLimit, reconcileLimit, logger) {
   const child = spawn(
     process.execPath,
-    [syncScriptPath, String(limit), String(resolveLimit)],
+    [syncScriptPath, String(limit), String(resolveLimit), '6', String(reconcileLimit)],
     {
       cwd: packageRoot,
       stdio: 'inherit',
@@ -46,6 +47,7 @@ function startSyncProcess(limit, resolveLimit, logger) {
     pid: child.pid,
     limit,
     resolveLimit,
+    reconcileLimit,
   })
 
   return child
@@ -54,15 +56,21 @@ function startSyncProcess(limit, resolveLimit, logger) {
 async function main() {
   await loadProjectEnv(repoRoot)
   await loadProjectEnv(packageRoot)
+  await loadProjectEnv(frontendRoot)
 
   const logger = createLogger('watch-transaction-block-derived-records')
   const limit = Number.parseInt(process.argv[2] ?? '250', 10)
   const resolveLimit = Number.parseInt(process.argv[3] ?? '500', 10)
+  const reconcileLimit = Number.parseInt(process.argv[4] ?? '100', 10)
   const checkIntervalMs = 90000
   let child = null
 
-  if ([limit, resolveLimit].some((value) => Number.isNaN(value) || value <= 0)) {
-    throw new Error('limit and resolveLimit must be positive integers')
+  if (
+    [limit, resolveLimit, reconcileLimit].some(
+      (value) => Number.isNaN(value) || value <= 0
+    )
+  ) {
+    throw new Error('limit, resolveLimit, and reconcileLimit must be positive integers')
   }
 
   process.on('SIGINT', () => {
@@ -91,10 +99,10 @@ async function main() {
     })
 
     if (
-      pendingCount > 0 &&
+      (pendingCount > 0 || reconcileLimit > 0) &&
       (!child || child.exitCode !== null || child.killed)
     ) {
-      child = startSyncProcess(limit, resolveLimit, logger)
+      child = startSyncProcess(limit, resolveLimit, reconcileLimit, logger)
     }
 
     await delay(checkIntervalMs)

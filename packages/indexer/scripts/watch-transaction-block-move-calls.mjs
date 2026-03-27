@@ -9,6 +9,7 @@ import { createLogger } from './sui-rpc-sync-helpers.mjs'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const packageRoot = path.resolve(scriptDirectory, '..')
 const repoRoot = path.resolve(packageRoot, '..', '..')
+const frontendRoot = path.join(repoRoot, 'packages', 'frontend')
 const syncScriptPath = path.join(
   packageRoot,
   'scripts',
@@ -80,6 +81,7 @@ function startSyncProcess(limit, concurrency, logger) {
 async function main() {
   await loadProjectEnv(repoRoot)
   await loadProjectEnv(packageRoot)
+  await loadProjectEnv(frontendRoot)
 
   const logger = createLogger('watch-transaction-block-move-calls')
   const limit = Number.parseInt(process.argv[2] ?? '500', 10)

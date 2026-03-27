@@ -118,40 +118,80 @@ export async function listBuildingLeaderboard(sql, input = {}) {
 
   const rows = moduleName
     ? await sql`
+        WITH grouped AS (
+          SELECT
+            bi.tenant,
+            bi.owner_character_item_id,
+            COUNT(*)::int AS building_count,
+            MAX(bi.last_seen_at) AS last_seen_at
+          FROM building_instances AS bi
+          WHERE bi.is_active = TRUE
+            AND bi.owner_character_item_id IS NOT NULL
+            AND bi.module_name = ${moduleName}
+          GROUP BY bi.tenant, bi.owner_character_item_id
+        )
         SELECT
+          grouped.tenant,
+          grouped.owner_character_item_id,
           ci.character_address AS wallet_address,
-          COUNT(*)::int AS building_count,
-          MAX(bi.last_seen_at) AS last_seen_at
-        FROM building_instances AS bi
-        JOIN character_identity AS ci
-          ON ci.tenant = bi.tenant
-         AND ci.character_item_id = bi.owner_character_item_id
-         AND ci.is_current = TRUE
-        WHERE bi.is_active = TRUE
-          AND bi.module_name = ${moduleName}
-        GROUP BY ci.character_address
-        ORDER BY building_count DESC, last_seen_at DESC NULLS LAST, ci.character_address ASC
+          grouped.building_count,
+          grouped.last_seen_at
+        FROM grouped
+        LEFT JOIN LATERAL (
+          SELECT character_address
+          FROM character_identity AS ci
+          WHERE ci.tenant = grouped.tenant
+            AND ci.character_item_id = grouped.owner_character_item_id
+            AND ci.is_current = TRUE
+          ORDER BY ci.valid_from DESC, ci.id DESC
+          LIMIT 1
+        ) AS ci ON TRUE
+        ORDER BY
+          grouped.building_count DESC,
+          grouped.last_seen_at DESC NULLS LAST,
+          COALESCE(ci.character_address, grouped.owner_character_item_id) ASC
         LIMIT ${limit}
       `
     : await sql`
+        WITH grouped AS (
+          SELECT
+            bi.tenant,
+            bi.owner_character_item_id,
+            COUNT(*)::int AS building_count,
+            MAX(bi.last_seen_at) AS last_seen_at
+          FROM building_instances AS bi
+          WHERE bi.is_active = TRUE
+            AND bi.owner_character_item_id IS NOT NULL
+          GROUP BY bi.tenant, bi.owner_character_item_id
+        )
         SELECT
+          grouped.tenant,
+          grouped.owner_character_item_id,
           ci.character_address AS wallet_address,
-          COUNT(*)::int AS building_count,
-          MAX(bi.last_seen_at) AS last_seen_at
-        FROM building_instances AS bi
-        JOIN character_identity AS ci
-          ON ci.tenant = bi.tenant
-         AND ci.character_item_id = bi.owner_character_item_id
-         AND ci.is_current = TRUE
-        WHERE bi.is_active = TRUE
-        GROUP BY ci.character_address
-        ORDER BY building_count DESC, last_seen_at DESC NULLS LAST, ci.character_address ASC
+          grouped.building_count,
+          grouped.last_seen_at
+        FROM grouped
+        LEFT JOIN LATERAL (
+          SELECT character_address
+          FROM character_identity AS ci
+          WHERE ci.tenant = grouped.tenant
+            AND ci.character_item_id = grouped.owner_character_item_id
+            AND ci.is_current = TRUE
+          ORDER BY ci.valid_from DESC, ci.id DESC
+          LIMIT 1
+        ) AS ci ON TRUE
+        ORDER BY
+          grouped.building_count DESC,
+          grouped.last_seen_at DESC NULLS LAST,
+          COALESCE(ci.character_address, grouped.owner_character_item_id) ASC
         LIMIT ${limit}
       `
 
   return rows.map((row, index) => ({
     rank: index + 1,
-    walletAddress: row.wallet_address,
+    tenant: row.tenant,
+    ownerCharacterItemId: row.owner_character_item_id,
+    walletAddress: row.wallet_address ?? null,
     buildingCount: row.building_count,
     lastSeenAt: row.last_seen_at,
   }))

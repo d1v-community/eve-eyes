@@ -3,13 +3,18 @@ import { fileURLToPath } from 'node:url'
 import { loadProjectEnv } from './load-env.mjs'
 import { getIndexerConfig } from '../src/config.mjs'
 import {
+  reconcileActiveBuildingInstances,
   resolvePendingBuildingInstances,
   resolvePendingKillmailRecords,
   syncDerivedRecordsForTransactionBlock,
 } from '../src/derived-record-sync.mjs'
 import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
-import { createLogger, createRpcPool } from './sui-rpc-sync-helpers.mjs'
+import {
+  createLogger,
+  createRpcPool,
+  runWithConcurrency,
+} from './sui-rpc-sync-helpers.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const packageRoot = path.resolve(scriptDirectory, '..')
@@ -44,13 +49,27 @@ async function main() {
   const logger = createLogger('sync-transaction-block-derived-records')
   const limit = Number.parseInt(process.argv[2] ?? '250', 10)
   const resolveLimit = Number.parseInt(process.argv[3] ?? '500', 10)
+  const concurrency = Number.parseInt(
+    process.argv[4] ?? process.env.DERIVED_SYNC_CONCURRENCY ?? '6',
+    10
+  )
+  const reconcileLimit = Number.parseInt(
+    process.argv[5] ?? process.env.BUILDING_RECONCILE_LIMIT ?? '100',
+    10
+  )
 
-  if ([limit, resolveLimit].some((value) => Number.isNaN(value) || value <= 0)) {
-    throw new Error('limit and resolveLimit must be positive integers')
+  if (
+    [limit, resolveLimit, concurrency, reconcileLimit].some(
+      (value) => Number.isNaN(value) || value <= 0
+    )
+  ) {
+    throw new Error(
+      'limit, resolveLimit, concurrency, and reconcileLimit must be positive integers'
+    )
   }
 
   const sql = createSqlClient(undefined, {
-    max: 4,
+    max: Math.max(4, concurrency + 2),
   })
   const rpcPool = createRpcPool()
 
@@ -67,7 +86,7 @@ async function main() {
     let killmailCount = 0
     const rpcUsage = new Map()
 
-    for (const row of rows) {
+    await runWithConcurrency(rows, concurrency, async (row) => {
       const result = await syncDerivedRecordsForTransactionBlock(
         sql,
         rpcPool,
@@ -77,7 +96,7 @@ async function main() {
 
       if (result.skipped) {
         skippedCount += 1
-        continue
+        return
       }
 
       syncedCount += 1
@@ -89,18 +108,40 @@ async function main() {
       for (const rpcUrl of result.rpcUsage) {
         rpcUsage.set(rpcUrl, (rpcUsage.get(rpcUrl) ?? 0) + 1)
       }
-    }
+    })
 
-    const buildingResolution = await resolvePendingBuildingInstances(sql, resolveLimit)
+    const buildingResolution = await resolvePendingBuildingInstances(
+      sql,
+      rpcPool,
+      config.packageId,
+      resolveLimit
+    )
+    const buildingReconciliation = await reconcileActiveBuildingInstances(
+      sql,
+      rpcPool,
+      config.packageId,
+      reconcileLimit,
+      concurrency
+    )
     const resolution = await resolvePendingKillmailRecords(sql, resolveLimit)
 
     logger.info('derived-record sync completed', {
       totalCount,
+      concurrency,
+      reconcileLimit,
       syncedCount,
       skippedCount,
       buildingChangeCount,
       buildingOwnerCapChangeCount,
       resolvedBuildingOwnerCount: buildingResolution.resolvedCount,
+      resolvedBuildingOwnerObjectCount:
+        buildingResolution.resolvedOwnerCharacterObjectCount,
+      resolvedBuildingOwnerItemCount:
+        buildingResolution.resolvedOwnerCharacterItemCount,
+      resolvedCharacterIdentityCount:
+        buildingResolution.resolvedCharacterIdentityCount,
+      reconciledBuildingCount: buildingReconciliation.checkedCount,
+      deactivatedBuildingCount: buildingReconciliation.deactivatedCount,
       characterChangeCount,
       killmailCount,
       resolvedKillmailCount: resolution.resolvedCount,

@@ -298,6 +298,25 @@ export const API_DOCS: ApiDoc[] = [
     example: `curl '/api/indexer/module-call-counts'`,
   },
   {
+    id: 'indexer-building-leaderboard',
+    group: 'indexer',
+    method: 'GET',
+    path: '/api/v1/indexer/building-leaderboard',
+    title: 'Get Building Leaderboard',
+    auth: 'public',
+    summary:
+      'Returns the active observed-building leaderboard, grouped by owner character and resolved wallet.',
+    params: ['limit?', 'moduleName?'],
+    notes: [
+      'Supports `moduleName` values: assembly, gate, network_node, storage_unit, turret.',
+      'Cross-origin `GET` and `OPTIONS` are enabled for public clients.',
+      'You can optionally send `Authorization: ApiKey <api-key>` or `X-API-Key` to attach usage tracking and rate limits.',
+      'The unversioned `/api/indexer/building-leaderboard` path remains as a compatibility alias.',
+    ],
+    response: ['ok', 'apiVersion', 'auth.type', 'leaderboard[]', 'errorCode?'],
+    example: `curl '/api/v1/indexer/building-leaderboard?limit=10&moduleName=gate'`,
+  },
+  {
     id: 'world-route',
     group: 'world',
     method: 'GET',
