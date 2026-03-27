@@ -29,7 +29,7 @@ const reportError = (
   userFriendlyMessage?: string | null,
   id?: string
 ) => {
-  if (error != null) {
+  if (error != null && !userFriendlyMessage) {
     console.error(error)
   }
 

@@ -146,7 +146,7 @@ export default function AccessLoginPanel() {
         error instanceof Error ? error.message : 'Failed to sign in'
       setErrorMessage(message)
       notification.error(
-        error instanceof Error ? error : null,
+        null,
         message,
         loginToastId
       )

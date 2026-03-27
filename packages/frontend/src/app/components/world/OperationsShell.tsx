@@ -3,7 +3,9 @@
 import {
   ArrowRightLeft,
   Binary,
+  Crosshair,
   FolderKanban,
+  Trophy,
   ShieldCheck,
   ShipWheel,
   Swords,
@@ -18,6 +20,8 @@ const navIcons = {
   '/tribes': Swords,
   '/verify': ShieldCheck,
   '/jumps': ArrowRightLeft,
+  '/operations/killmails': Crosshair,
+  '/leaderboards': Trophy,
   '/todo': FolderKanban,
 } as const
 
@@ -44,7 +48,8 @@ export default function OperationsShell({ children }: OperationsShellProps) {
           <nav className="-mx-1 mt-4 flex w-auto max-w-full gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0">
             {operationsNavigation.map((item) => {
               const Icon = navIcons[item.href]
-              const isActive = pathname === item.href
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`)
 
               return (
                 <Link

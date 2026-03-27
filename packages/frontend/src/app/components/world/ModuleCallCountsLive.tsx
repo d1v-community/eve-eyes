@@ -1,12 +1,16 @@
 'use client'
 
 import { Activity, Radio, RefreshCw, Sparkles, Zap } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const numberFormatter = new Intl.NumberFormat('en-US')
 const POLL_INTERVAL_MS = 5000
 const GROWTH_FLASH_MS = 1800
 const COUNT_UP_DURATION_MS = 1200
+const MODULE_DETAIL_HREFS: Record<string, string> = {
+  killmail: '/operations/killmails',
+}
 
 type ModuleCallCountItem = {
   moduleName: string
@@ -414,55 +418,81 @@ export default function ModuleCallCountsLive({
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {modules.map((module, index) => (
-          <article
-            key={module.moduleName}
-            className={`group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 transition-all duration-500 dark:border-slate-800 dark:bg-slate-900/60 ${
-              highlightedModuleSet.has(module.moduleName)
-                ? 'module-card-rise scale-[1.03] border-emerald-300/80 shadow-[0_18px_42px_rgba(16,185,129,0.22)] dark:border-emerald-700'
-                : 'shadow-none'
-            }`}
-            style={{ animationDelay: `${index * 60}ms` }}
-          >
-            <div
-              className={`pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08),transparent_35%,rgba(250,204,21,0.08))] transition-opacity duration-500 ${
-                highlightedModuleSet.has(module.moduleName) ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-            <div className="relative text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              {module.moduleName}
-            </div>
-            <div
-              className={`relative mt-3 text-3xl font-semibold text-slate-950 transition-all duration-500 dark:text-white ${
-                highlightedModuleSet.has(module.moduleName)
-                  ? 'module-count-rise text-emerald-700 dark:text-emerald-300'
-                  : 'translate-y-0 scale-100'
-              }`}
+        {modules.map((module, index) => {
+          const detailHref = MODULE_DETAIL_HREFS[module.moduleName] ?? null
+          const isHighlighted = highlightedModuleSet.has(module.moduleName)
+          const className = `group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 transition-all duration-500 dark:border-slate-800 dark:bg-slate-900/60 ${
+            isHighlighted
+              ? 'module-card-rise scale-[1.03] border-emerald-300/80 shadow-[0_18px_42px_rgba(16,185,129,0.22)] dark:border-emerald-700'
+              : 'shadow-none'
+          } ${detailHref ? 'hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-[0_18px_36px_rgba(56,189,248,0.1)] dark:hover:border-sky-700' : ''}`
+
+          const content = (
+            <>
+              <div
+                className={`pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08),transparent_35%,rgba(250,204,21,0.08))] transition-opacity duration-500 ${
+                  isHighlighted ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+              <div className="relative text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                {module.moduleName}
+              </div>
+              <div
+                className={`relative mt-3 text-3xl font-semibold text-slate-950 transition-all duration-500 dark:text-white ${
+                  isHighlighted
+                    ? 'module-count-rise text-emerald-700 dark:text-emerald-300'
+                    : 'translate-y-0 scale-100'
+                }`}
+              >
+                {numberFormatter.format(animatedCounts[module.moduleName] ?? module.callCount)}
+              </div>
+              {isHighlighted ? (
+                <div className="relative mt-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                  Count increased
+                </div>
+              ) : null}
+              {moduleGrowthDeltas[module.moduleName] != null ? (
+                <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-emerald-100/95 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-emerald-700 shadow-[0_10px_26px_rgba(16,185,129,0.18)] dark:bg-emerald-950/80 dark:text-emerald-300">
+                  <span className="module-delta-float">
+                    +{numberFormatter.format(moduleGrowthDeltas[module.moduleName])}
+                  </span>
+                </div>
+              ) : null}
+              <p className="relative mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                Latest tx:{' '}
+                {hasMounted && module.latestTransactionTime
+                  ? formatLatestTransactionTime(module.latestTransactionTime)
+                  : module.latestTransactionTime
+                    ? 'Resolving local time...'
+                    : 'No data yet'}
+              </p>
+              {detailHref ? (
+                <div className="relative mt-3 font-display text-[10px] uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
+                  View details
+                </div>
+              ) : null}
+            </>
+          )
+
+          return detailHref ? (
+            <Link
+              key={module.moduleName}
+              href={detailHref}
+              className={className}
+              style={{ animationDelay: `${index * 60}ms` }}
             >
-              {numberFormatter.format(animatedCounts[module.moduleName] ?? module.callCount)}
-            </div>
-            {highlightedModuleSet.has(module.moduleName) ? (
-              <div className="relative mt-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                Count increased
-              </div>
-            ) : null}
-            {moduleGrowthDeltas[module.moduleName] != null ? (
-              <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-emerald-100/95 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-emerald-700 shadow-[0_10px_26px_rgba(16,185,129,0.18)] dark:bg-emerald-950/80 dark:text-emerald-300">
-                <span className="module-delta-float">
-                  +{numberFormatter.format(moduleGrowthDeltas[module.moduleName])}
-                </span>
-              </div>
-            ) : null}
-            <p className="relative mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
-              Latest tx:{' '}
-              {hasMounted && module.latestTransactionTime
-                ? formatLatestTransactionTime(module.latestTransactionTime)
-                : module.latestTransactionTime
-                  ? 'Resolving local time...'
-                  : 'No data yet'}
-            </p>
-          </article>
-        ))}
+              {content}
+            </Link>
+          ) : (
+            <article
+              key={module.moduleName}
+              className={className}
+              style={{ animationDelay: `${index * 60}ms` }}
+            >
+              {content}
+            </article>
+          )
+        })}
       </div>
 
       <style jsx>{`

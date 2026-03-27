@@ -7,6 +7,11 @@ import { ENetwork } from '~~/types/ENetwork'
 export const transactionUrl = (baseExplorerUrl: string, txDigest: string) => {
   return `${baseExplorerUrl}/txblock/${txDigest}`
 }
+
+export const accountUrl = (baseExplorerUrl: string, address: string) => {
+  return `${baseExplorerUrl}/account/${address}`
+}
+
 export const packageUrl = (baseExplorerUrl: string, packageId: string) => {
   // Local explorer doesn't have a package view, so we stick with object view instead.
   const subpath =

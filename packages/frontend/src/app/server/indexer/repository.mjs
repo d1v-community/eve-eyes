@@ -36,6 +36,15 @@ function buildEmptyModuleCallCounts() {
   }))
 }
 
+function buildEmptyKillmailSummary() {
+  return {
+    totalRecords: 0,
+    resolvedTotal: 0,
+    pendingTotal: 0,
+    latestKillAt: null,
+  }
+}
+
 function isMissingRelationError(error) {
   return (
     error &&
@@ -107,6 +116,131 @@ export async function getModuleCallCounts(sql) {
 
     return left.moduleName.localeCompare(right.moduleName)
   })
+}
+
+export async function getKillmailSummary(sql) {
+  let rows
+
+  try {
+    rows = await sql`
+      SELECT
+        COUNT(*)::int AS total_records,
+        COUNT(*) FILTER (WHERE resolution_status = 'resolved')::int AS resolved_total,
+        COUNT(*) FILTER (WHERE resolution_status = 'pending')::int AS pending_total,
+        MAX(kill_timestamp) AS latest_kill_at
+      FROM killmail_records
+    `
+  } catch (error) {
+    if (isMissingRelationError(error) || isTransientConnectionError(error)) {
+      return buildEmptyKillmailSummary()
+    }
+
+    throw error
+  }
+
+  return {
+    totalRecords: rows[0]?.total_records ?? 0,
+    resolvedTotal: rows[0]?.resolved_total ?? 0,
+    pendingTotal: rows[0]?.pending_total ?? 0,
+    latestKillAt: rows[0]?.latest_kill_at ?? null,
+  }
+}
+
+export async function listKillmailRecords(sql, input = {}) {
+  const limit = Number.isInteger(input.limit) && input.limit > 0 ? input.limit : 40
+  const status =
+    typeof input.status === 'string' &&
+    ['pending', 'resolved'].includes(input.status)
+      ? input.status
+      : null
+
+  let rows
+
+  try {
+    rows = status
+      ? await sql`
+          SELECT
+            tenant,
+            killmail_item_id,
+            tx_digest,
+            event_seq,
+            tx_checkpoint,
+            tx_timestamp,
+            kill_timestamp,
+            kill_timestamp_unix,
+            loss_type,
+            solar_system_id,
+            killer_character_item_id,
+            victim_character_item_id,
+            reported_by_character_item_id,
+            killer_wallet_address,
+            victim_wallet_address,
+            reported_by_wallet_address,
+            resolution_status,
+            resolution_error,
+            resolved_at,
+            raw_event
+          FROM killmail_records
+          WHERE resolution_status = ${status}
+          ORDER BY kill_timestamp DESC, id DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT
+            tenant,
+            killmail_item_id,
+            tx_digest,
+            event_seq,
+            tx_checkpoint,
+            tx_timestamp,
+            kill_timestamp,
+            kill_timestamp_unix,
+            loss_type,
+            solar_system_id,
+            killer_character_item_id,
+            victim_character_item_id,
+            reported_by_character_item_id,
+            killer_wallet_address,
+            victim_wallet_address,
+            reported_by_wallet_address,
+            resolution_status,
+            resolution_error,
+            resolved_at,
+            raw_event
+          FROM killmail_records
+          ORDER BY kill_timestamp DESC, id DESC
+          LIMIT ${limit}
+        `
+  } catch (error) {
+    if (isMissingRelationError(error) || isTransientConnectionError(error)) {
+      return []
+    }
+
+    throw error
+  }
+
+  return rows.map((row) => ({
+    tenant: row.tenant,
+    killmailItemId: row.killmail_item_id,
+    txDigest: row.tx_digest,
+    eventSeq: row.event_seq,
+    txCheckpoint: row.tx_checkpoint,
+    txTimestamp: row.tx_timestamp,
+    killTimestamp: row.kill_timestamp,
+    killTimestampUnix: row.kill_timestamp_unix,
+    lossType: row.loss_type,
+    solarSystemId: row.solar_system_id,
+    killerCharacterItemId: row.killer_character_item_id,
+    victimCharacterItemId: row.victim_character_item_id,
+    reportedByCharacterItemId: row.reported_by_character_item_id,
+    killerWalletAddress: row.killer_wallet_address ?? null,
+    victimWalletAddress: row.victim_wallet_address ?? null,
+    reportedByWalletAddress: row.reported_by_wallet_address ?? null,
+    resolutionStatus: row.resolution_status,
+    resolutionError: row.resolution_error ?? null,
+    resolvedAt: row.resolved_at ?? null,
+    rawEvent: row.raw_event,
+  }))
 }
 
 export async function listBuildingLeaderboard(sql, input = {}) {
@@ -195,4 +329,38 @@ export async function listBuildingLeaderboard(sql, input = {}) {
     buildingCount: row.building_count,
     lastSeenAt: row.last_seen_at,
   }))
+}
+
+export async function getBuildingLeaderboardSummary(sql, input = {}) {
+  const moduleName =
+    typeof input.moduleName === 'string' && input.moduleName.trim().length > 0
+      ? input.moduleName.trim()
+      : null
+
+  const rows = moduleName
+    ? await sql`
+        SELECT
+          COUNT(*)::int AS active_building_total,
+          COUNT(DISTINCT (tenant, owner_character_item_id))::int AS ranked_owner_total,
+          MAX(last_seen_at) AS latest_seen_at
+        FROM building_instances
+        WHERE is_active = TRUE
+          AND owner_character_item_id IS NOT NULL
+          AND module_name = ${moduleName}
+      `
+    : await sql`
+        SELECT
+          COUNT(*)::int AS active_building_total,
+          COUNT(DISTINCT (tenant, owner_character_item_id))::int AS ranked_owner_total,
+          MAX(last_seen_at) AS latest_seen_at
+        FROM building_instances
+        WHERE is_active = TRUE
+          AND owner_character_item_id IS NOT NULL
+      `
+
+  return {
+    activeBuildingTotal: rows[0]?.active_building_total ?? 0,
+    rankedOwnerTotal: rows[0]?.ranked_owner_total ?? 0,
+    latestSeenAt: rows[0]?.latest_seen_at ?? null,
+  }
 }

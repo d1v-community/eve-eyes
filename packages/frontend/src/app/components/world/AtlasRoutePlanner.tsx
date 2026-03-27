@@ -17,6 +17,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { normalizeRouteErrorMessage } from '~~/world/route-errors'
 import type { SearchSystem } from '../../world/types'
 import AtlasRecentRoutes from './AtlasRecentRoutes'
 import AtlasRouteMap from './AtlasRouteMap'
@@ -217,7 +218,11 @@ export default function AtlasRoutePlanner() {
 
         setRoute(null)
         setError(
-          requestError instanceof Error ? requestError.message : 'Route search failed'
+          normalizeRouteErrorMessage(
+            requestError instanceof Error
+              ? requestError.message
+              : 'Route search failed'
+          )
         )
       } finally {
         setIsLoading(false)

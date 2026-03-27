@@ -15,6 +15,10 @@ import {
 } from 'lucide-react'
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { notification } from '~~/helpers/notification'
+import {
+  normalizeRouteErrorMessage,
+  ROUTE_NOT_FOUND_MESSAGE,
+} from '~~/world/route-errors'
 import { useTheme } from '../../providers/ThemeProvider'
 import type {
   MapConstellation,
@@ -201,18 +205,15 @@ export default function AtlasExplorer({
       notification.success('Route plotted successfully', toastId)
     } catch (requestError) {
       setRoute(null)
-      const message =
+      const rawMessage =
         requestError instanceof Error
           ? requestError.message
           : 'Route search failed'
-      const isExpectedRouteMiss = message === 'No route found within the current search budget'
+      const message = normalizeRouteErrorMessage(rawMessage)
+      const isExpectedRouteMiss = rawMessage === ROUTE_NOT_FOUND_MESSAGE
 
       setError(isExpectedRouteMiss ? null : message)
-      notification.error(
-        isExpectedRouteMiss ? null : requestError instanceof Error ? requestError : null,
-        message,
-        toastId
-      )
+      notification.error(null, message, toastId)
     } finally {
       setIsLoading(false)
     }

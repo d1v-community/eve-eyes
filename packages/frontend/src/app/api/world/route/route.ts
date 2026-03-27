@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findRoute } from '~~/world/catalog'
+import { getRouteErrorStatus, normalizeRouteErrorMessage } from '~~/world/route-errors'
 
 export async function GET(request: NextRequest) {
   const originId = Number(request.nextUrl.searchParams.get('originId'))
@@ -17,11 +18,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(route)
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to find route'
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to find route',
+        error: normalizeRouteErrorMessage(message),
       },
-      { status: 500 }
+      { status: getRouteErrorStatus(message) }
     )
   }
 }

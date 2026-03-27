@@ -39,6 +39,16 @@ export const operationsNavigation = [
   { href: '/tribes', label: 'Tribes', description: 'Compact tribe intel and external links.' },
   { href: '/verify', label: 'Verify', description: 'POD-backed cards and signature checks.' },
   { href: '/jumps', label: 'Jumps', description: 'Personal travel history and heat.' },
+  {
+    href: '/operations/killmails',
+    label: 'Killmails',
+    description: 'Observed on-chain killmail events and event details.',
+  },
+  {
+    href: '/leaderboards',
+    label: 'Leaderboards',
+    description: 'Observed building holdings and owner rankings.',
+  },
   { href: '/todo', label: 'TODO', description: 'Roadmap and delivery checklist.' },
 ] as const
 
