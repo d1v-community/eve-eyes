@@ -15,6 +15,66 @@ import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
 import { createRpcPool } from './sui-rpc-sync-helpers.mjs'
 
+function parseCliArgs(argv) {
+  const options = {
+    maxModules: null,
+    maxPagesPerModule: null,
+    maxTransactions: null,
+    smoke: false,
+  }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index]
+
+    if (arg === '--') {
+      continue
+    }
+
+    if (arg === '--smoke') {
+      options.smoke = true
+      continue
+    }
+
+    const nextValue = argv[index + 1]
+
+    if (arg === '--max-modules') {
+      options.maxModules = Number.parseInt(nextValue ?? '', 10)
+      index += 1
+      continue
+    }
+
+    if (arg === '--max-pages-per-module') {
+      options.maxPagesPerModule = Number.parseInt(nextValue ?? '', 10)
+      index += 1
+      continue
+    }
+
+    if (arg === '--max-transactions') {
+      options.maxTransactions = Number.parseInt(nextValue ?? '', 10)
+      index += 1
+      continue
+    }
+  }
+
+  if (options.smoke) {
+    options.maxModules ??= 2
+    options.maxPagesPerModule ??= 1
+    options.maxTransactions ??= 20
+  }
+
+  for (const [key, value] of Object.entries(options)) {
+    if (key === 'smoke' || value == null) {
+      continue
+    }
+
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${key} must be a positive integer`)
+    }
+  }
+
+  return options
+}
+
 function getWebhookUrl() {
   return process.env.notify_webhook?.trim() || process.env.NOTIFY_WEBHOOK?.trim() || null
 }
@@ -196,6 +256,7 @@ async function main() {
   const config = getIndexerConfig()
   const logger = createLogger('backfill-package-transaction-blocks')
   const webhookUrl = getWebhookUrl()
+  const options = parseCliArgs(process.argv.slice(2))
 
   await bootstrapIndexerEnv(config)
 
@@ -207,19 +268,29 @@ async function main() {
   try {
     await runPendingMigrations(sql, migrationsDirectory)
 
-    const modules = await resolvePackageModules(client, config)
+    const resolvedModules = await resolvePackageModules(client, config)
+    const modules =
+      options.maxModules == null
+        ? resolvedModules
+        : resolvedModules.slice(0, options.maxModules)
     const knownDigests = await loadExistingDigestSet(sql, config.network)
     const seenDigestsThisRun = new Set()
+    let totalFetchedTransactions = 0
 
     logger.info('starting historical backfill', {
       packageId: config.packageId,
       network: config.network,
       rpcUrl: config.rpcUrl,
       moduleCount: modules.length,
+      resolvedModuleCount: resolvedModules.length,
       knownDigestCount: knownDigests.size,
       eventPageSize: config.eventPageSize,
       rpcBatchSize: config.rpcBatchSize,
       processConcurrency: config.processConcurrency,
+      maxModules: options.maxModules,
+      maxPagesPerModule: options.maxPagesPerModule,
+      maxTransactions: options.maxTransactions,
+      smoke: options.smoke,
     })
 
     let totalPages = 0
@@ -235,11 +306,46 @@ async function main() {
     let latestTransactionTime = null
 
     for (const moduleName of modules) {
+      if (
+        options.maxTransactions != null &&
+        totalFetchedTransactions >= options.maxTransactions
+      ) {
+        logger.info('reached max transaction limit, stopping backfill', {
+          maxTransactions: options.maxTransactions,
+          totalFetchedTransactions,
+        })
+        break
+      }
+
       let cursor = null
       let pageCount = 0
       let moduleStored = 0
 
       while (true) {
+        if (
+          options.maxPagesPerModule != null &&
+          pageCount >= options.maxPagesPerModule
+        ) {
+          logger.info('reached max pages per module limit, stopping module backfill', {
+            moduleName,
+            maxPagesPerModule: options.maxPagesPerModule,
+            pageCount,
+          })
+          break
+        }
+
+        if (
+          options.maxTransactions != null &&
+          totalFetchedTransactions >= options.maxTransactions
+        ) {
+          logger.info('reached max transaction limit during module backfill', {
+            moduleName,
+            maxTransactions: options.maxTransactions,
+            totalFetchedTransactions,
+          })
+          break
+        }
+
         const page = await queryModuleEventsDescending(client, config, moduleName, cursor)
         const events = page?.data ?? []
 
@@ -270,14 +376,23 @@ async function main() {
           seenDigestsThisRun.add(digest)
         }
 
+        const remainingTransactionBudget =
+          options.maxTransactions == null
+            ? null
+            : Math.max(0, options.maxTransactions - totalFetchedTransactions)
+        const limitedFreshDigests =
+          remainingTransactionBudget == null
+            ? freshDigests
+            : freshDigests.slice(0, remainingTransactionBudget)
+
         const result =
-          freshDigests.length > 0
+          limitedFreshDigests.length > 0
             ? await processDigests(
                 sql,
                 client,
                 config,
                 logger,
-                freshDigests,
+                limitedFreshDigests,
                 knownDigests,
                 rpcPool
               )
@@ -303,6 +418,7 @@ async function main() {
         totalActivityRecords += result.insertedActivityCount
         totalActivityParticipants += result.insertedParticipantCount
         latestTransactionTime = result.latestTransactionTime ?? latestTransactionTime
+        totalFetchedTransactions += limitedFreshDigests.length
 
         if (result.syncedDerivedCount > 0 && (result.characterChangeCount > 0 || result.killmailCount > 0)) {
           await resolvePendingKillmailRecords(sql, 500)
@@ -317,7 +433,7 @@ async function main() {
           eventCount: events.length,
           candidateTransactionCount: pageDigests.length,
           duplicateDigestCount: duplicateCount,
-          fetchedDigestCount: freshDigests.length,
+          fetchedDigestCount: limitedFreshDigests.length,
           storedTransactionCount: result.insertedOrUpdatedCount,
           syncedDerivedTransactionCount: result.syncedDerivedCount,
           characterChangeCount: result.characterChangeCount,
@@ -352,6 +468,7 @@ async function main() {
       stored: totalStored,
       skippedExisting: totalSkippedExisting,
       skippedNonMatching: totalSkippedNonMatching,
+      fetchedTransactions: totalFetchedTransactions,
       syncedDerivedTransactions: totalDerivedSynced,
       characterChanges: totalCharacterChanges,
       killmails: totalKillmails,
@@ -366,6 +483,7 @@ async function main() {
     console.log(`modules: ${modules.length}`)
     console.log(`pages: ${totalPages}`)
     console.log(`known_digests_loaded: ${knownDigests.size}`)
+    console.log(`fetched_transactions: ${totalFetchedTransactions}`)
     console.log(`stored: ${totalStored}`)
     console.log(`skipped_existing: ${totalSkippedExisting}`)
     console.log(`skipped_non_matching: ${totalSkippedNonMatching}`)

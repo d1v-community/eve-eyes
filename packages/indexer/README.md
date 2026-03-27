@@ -62,7 +62,9 @@ Key command behavior:
 - `pnpm --filter indexer subscribe:package`
   - Legacy standalone webhook notifier. Keep it only if you intentionally want notifications without running the main DB ingester.
 - `pnpm --filter indexer backfill:package`
-  - Backfills missing `transaction_blocks` rows and writes `transaction_time` into `transaction_blocks`.
+  - Backfills missing `transaction_blocks` rows and now also syncs derived records and user activities inline.
+- `pnpm --filter indexer run backfill:package:smoke`
+  - Safe smoke test: limits the run to a small number of modules, pages, and transactions before doing a full backfill.
 - `pnpm --filter indexer run db:watch:transaction-block-move-calls`
   - Periodically parses pending successful transactions and writes `transaction_time` into `suiscan_move_calls`.
 - `pnpm --filter indexer run db:watch:derived-records`
@@ -100,6 +102,18 @@ Import historical Suiscan CSV data:
 
 ```bash
 pnpm --filter indexer run db:import:suiscan /path/to/file.csv
+```
+
+Run a safe smoke test before a full historical backfill:
+
+```bash
+pnpm --filter indexer run backfill:package:smoke
+```
+
+Or tune the limits manually:
+
+```bash
+pnpm --filter indexer run backfill:package -- --max-modules 2 --max-pages-per-module 1 --max-transactions 20
 ```
 
 ## Idempotency And Concurrency

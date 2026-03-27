@@ -7,6 +7,7 @@
     "start": "node ./src/main.mjs",
     "subscribe:package": "node ./scripts/subscribe-package-transactions.mjs",
     "backfill:package": "node ./scripts/backfill-package-transaction-blocks.mjs",
+    "backfill:package:smoke": "node ./scripts/backfill-package-transaction-blocks.mjs --smoke",
     "db:find:failed-move-calls": "node ./scripts/find-failed-transactions-with-move-calls.mjs",
     "once": "INDEXER_RUN_ONCE=true node ./src/main.mjs",
     "pipeline": "node ./scripts/pipeline.mjs",

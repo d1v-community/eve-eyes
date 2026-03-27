@@ -98,12 +98,8 @@ async function processDigest(sql, client, config, logger, digest, rpcPool) {
   return result
 }
 
-<<<<<<< HEAD
 async function bootstrapCompensationCursors(client, config, logger, modules) {
   let state = await readState(config)
-=======
-async function runPollingFallback(sql, client, config, logger, modules, seenDigests, webhookUrl, rpcPool) {
->>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
   const moduleCursors = new Map()
 
   for (const moduleName of modules) {
@@ -138,6 +134,7 @@ async function runCompensationPolling(
   seenDigests,
   inflightDigests,
   webhookUrl,
+  rpcPool,
   shouldStop
 ) {
   const bootstrap = await bootstrapCompensationCursors(client, config, logger, modules)
@@ -177,7 +174,6 @@ async function runCompensationPolling(
         ]
         let pageStoredTransactionCount = 0
 
-<<<<<<< HEAD
         for (const digest of pageDigests) {
           if (!digest || inflightDigests.has(digest) || seenDigests.has(digest)) {
             continue
@@ -187,7 +183,13 @@ async function runCompensationPolling(
 
           try {
             seenDigests.add(digest)
-            const result = await processDigest(sql, client, config, logger, digest)
+            const result = await processDigest(sql, client, config, logger, digest, rpcPool)
+            if (
+              result.derivedSynced &&
+              (result.characterChangeCount > 0 || result.killmailCount > 0)
+            ) {
+              await resolvePendingKillmailRecords(sql, 100)
+            }
             await sendWebhookNotification(webhookUrl, config, result, logger)
 
             if (result.stored) {
@@ -200,16 +202,6 @@ async function runCompensationPolling(
           } finally {
             inflightDigests.delete(digest)
           }
-=======
-        for (const digest of digests) {
-          seenDigests.add(digest)
-          const result = await processDigest(sql, client, config, logger, digest, rpcPool)
-          if (result.derivedSynced && (result.characterChangeCount > 0 || result.killmailCount > 0)) {
-            await resolvePendingKillmailRecords(sql, 100)
-          }
-          await sendWebhookNotification(webhookUrl, config, result, logger)
-          storedTransactionCount += 1
->>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
         }
 
         const lastEvent = events.at(-1)
@@ -321,6 +313,7 @@ async function main() {
       seenDigests,
       inflightDigests,
       webhookUrl,
+      rpcPool,
       () => shuttingDown
     ).catch((error) => {
       if (!shuttingDown) {
@@ -348,7 +341,20 @@ async function main() {
             ;(async () => {
               try {
                 seenDigests.add(digest)
-                const result = await processDigest(sql, client, config, logger, digest)
+                const result = await processDigest(
+                  sql,
+                  client,
+                  config,
+                  logger,
+                  digest,
+                  rpcPool
+                )
+                if (
+                  result.derivedSynced &&
+                  (result.characterChangeCount > 0 || result.killmailCount > 0)
+                ) {
+                  await resolvePendingKillmailRecords(sql, 100)
+                }
                 await sendWebhookNotification(webhookUrl, config, result, logger)
               } catch (error) {
                 logger.error('failed to process realtime transaction', error)
@@ -373,25 +379,11 @@ async function main() {
 
       await new Promise(() => {})
     } catch (error) {
-<<<<<<< HEAD
       logger.error(
         'transaction subscription unavailable, continuing with compensation polling only',
         error
       )
       await compensationPollingPromise
-=======
-      logger.error('transaction subscription unavailable, falling back to polling', error)
-    await runPollingFallback(
-      sql,
-      client,
-      config,
-      logger,
-      modules,
-      seenDigests,
-      webhookUrl,
-      rpcPool
-    )
->>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
     }
   } finally {
     if (!shuttingDown) {
