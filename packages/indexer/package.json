@@ -22,7 +22,7 @@
     "db:backfill:user-activities": "node ./scripts/backfill-user-activities-until-empty.mjs"
   },
   "dependencies": {
-    "@mysten/sui": "^1.45.2",
+    "@mysten/sui": "^2.12.0",
     "postgres": "^3.4.8"
   }
 }
