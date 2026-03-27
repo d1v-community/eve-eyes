@@ -3,19 +3,22 @@
 import { useCurrentWallet } from '@mysten/dapp-kit'
 import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
-import { Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
+import { Activity, Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSyncExternalStore } from 'react'
 import CustomConnectButton from '../CustomConnectButton'
 import LogoMark from '../LogoMark'
+import ThemeSwitcher from '../ThemeSwitcher'
+import AddressSearchDialog from './AddressSearchDialog'
 import { headerNavigation, operationsNavigation } from '~~/world/roadmap'
 
 type HeaderHref = (typeof headerNavigation)[number]['href']
 
 const navIcons = {
   '/': Compass,
+  '/activity': Activity,
   '/atlas': Radar,
   '/fleet': FolderKanban,
 } satisfies Record<HeaderHref, typeof Compass>
@@ -68,6 +71,9 @@ const Header = () => {
               <Balance />
               {hasMounted && isConnected ? <NetworkType /> : null}
             </div>
+
+            <AddressSearchDialog />
+            <ThemeSwitcher />
 
             <div className="sds-connect-button-container shrink-0">
               <CustomConnectButton />

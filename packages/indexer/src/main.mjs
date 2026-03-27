@@ -14,8 +14,10 @@ import {
   processTransactionBlock,
 } from './ingest.mjs'
 import { createLogger } from './logger.mjs'
+import { resolvePendingKillmailRecords } from './derived-record-sync.mjs'
 import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
+import { createRpcPool } from '../scripts/sui-rpc-sync-helpers.mjs'
 
 function getRealtimeDigest(message) {
   return message?.transactionDigest ?? message?.digest ?? message?.id?.txDigest ?? null
@@ -73,22 +75,35 @@ async function sendWebhookNotification(webhookUrl, config, result, logger) {
   }
 }
 
-async function processDigest(sql, client, config, logger, digest) {
+async function processDigest(sql, client, config, logger, digest, rpcPool) {
   const txBlock = await fetchTransactionBlock(client, digest, config)
-  const result = await processTransactionBlock(sql, config, txBlock, logger)
+  const result = await processTransactionBlock(sql, config, txBlock, logger, {
+    rpcPool,
+    syncDerivedRecords: true,
+    syncUserActivities: true,
+  })
 
   logger.info('processed transaction', {
     digest: result.digest,
     stored: result.stored,
     checkpoint: result.checkpoint,
     executedAt: result.executedAt,
+    derivedSynced: result.derivedSynced,
+    characterChangeCount: result.characterChangeCount,
+    killmailCount: result.killmailCount,
+    activitySynced: result.activitySynced,
+    activityCount: result.activityCount,
   })
 
   return result
 }
 
+<<<<<<< HEAD
 async function bootstrapCompensationCursors(client, config, logger, modules) {
   let state = await readState(config)
+=======
+async function runPollingFallback(sql, client, config, logger, modules, seenDigests, webhookUrl, rpcPool) {
+>>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
   const moduleCursors = new Map()
 
   for (const moduleName of modules) {
@@ -162,6 +177,7 @@ async function runCompensationPolling(
         ]
         let pageStoredTransactionCount = 0
 
+<<<<<<< HEAD
         for (const digest of pageDigests) {
           if (!digest || inflightDigests.has(digest) || seenDigests.has(digest)) {
             continue
@@ -184,6 +200,16 @@ async function runCompensationPolling(
           } finally {
             inflightDigests.delete(digest)
           }
+=======
+        for (const digest of digests) {
+          seenDigests.add(digest)
+          const result = await processDigest(sql, client, config, logger, digest, rpcPool)
+          if (result.derivedSynced && (result.characterChangeCount > 0 || result.killmailCount > 0)) {
+            await resolvePendingKillmailRecords(sql, 100)
+          }
+          await sendWebhookNotification(webhookUrl, config, result, logger)
+          storedTransactionCount += 1
+>>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
         }
 
         const lastEvent = events.at(-1)
@@ -230,6 +256,7 @@ async function main() {
 
   const sql = createSqlClient()
   const client = createSuiClient(config)
+  const rpcPool = createRpcPool()
   const modules = await resolvePackageModules(client, config)
   const migrationsDirectory = getMigrationsDirectory(config)
   const inflightDigests = new Set()
@@ -346,11 +373,25 @@ async function main() {
 
       await new Promise(() => {})
     } catch (error) {
+<<<<<<< HEAD
       logger.error(
         'transaction subscription unavailable, continuing with compensation polling only',
         error
       )
       await compensationPollingPromise
+=======
+      logger.error('transaction subscription unavailable, falling back to polling', error)
+    await runPollingFallback(
+      sql,
+      client,
+      config,
+      logger,
+      modules,
+      seenDigests,
+      webhookUrl,
+      rpcPool
+    )
+>>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
     }
   } finally {
     if (!shuttingDown) {

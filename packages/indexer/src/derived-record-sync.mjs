@@ -540,17 +540,28 @@ export async function syncDerivedRecordsForTransactionBlock(
   packageId,
   row
 ) {
+  return sql.begin(async (transaction) =>
+    syncDerivedRecordsForTransactionBlockInTransaction(transaction, rpcPool, packageId, row)
+  )
+}
+
+export async function syncDerivedRecordsForTransactionBlockInTransaction(
+  transaction,
+  rpcPool,
+  packageId,
+  row
+) {
   const sourceTxTimestamp = resolveSourceTimestamp(row)
 
   if (!sourceTxTimestamp) {
     throw new Error(`transaction ${row.digest} is missing a usable source timestamp`)
   }
 
-  return sql.begin(async (transaction) => {
-    await transaction`
-      SELECT pg_advisory_xact_lock(hashtextextended(${row.digest}, 0))
-    `
+  await transaction`
+    SELECT pg_advisory_xact_lock(hashtextextended(${row.digest}, 0))
+  `
 
+<<<<<<< HEAD
     const syncStateRows = await transaction`
       SELECT derived_records_synced_at
       FROM transaction_blocks
@@ -721,8 +732,79 @@ export async function syncDerivedRecordsForTransactionBlock(
           characterChanges.filter((change) => change.kind === 'delete').length,
       killmailCount: killmailEvents.length,
       rpcUsage,
+=======
+  const syncStateRows = await transaction`
+    SELECT derived_records_synced_at
+    FROM transaction_blocks
+    WHERE digest = ${row.digest}
+    LIMIT 1
+  `
+
+  if (syncStateRows[0]?.derived_records_synced_at) {
+    return {
+      skipped: true,
+      characterChangeCount: 0,
+      killmailCount: 0,
+      rpcUsage: [],
+>>>>>>> b31d6d1 (feat: Implement user activity syncing, indexing, and display across the frontend and indexer.)
     }
-  })
+  }
+
+  const characterChanges = extractCharacterObjectChanges(
+    row.object_changes,
+    packageId
+  )
+  const characterCreateSnapshots = extractCharacterCreatedSnapshots(
+    row.events,
+    row.object_changes,
+    row.effects ?? row.raw_content?.effects ?? null,
+    packageId
+  )
+  const killmailEvents = extractKillmailEvents(row.events, packageId)
+  const rpcUsage = []
+
+  for (const snapshot of characterCreateSnapshots) {
+    await upsertCharacterIdentity(transaction, snapshot, {
+      sourceTxDigest: row.digest,
+      sourceTxTimestamp,
+      sourceObjectVersion: snapshot.sourceObjectVersion,
+    })
+  }
+
+  for (const change of characterChanges) {
+    if (change.kind !== 'delete') {
+      continue
+    }
+
+    await closeCharacterIdentity(transaction, {
+      characterObjectId: change.objectId,
+      sourceTxTimestamp,
+    })
+  }
+
+  for (const killmailEvent of killmailEvents) {
+    await upsertKillmailRecord(transaction, {
+      ...killmailEvent,
+      txDigest: row.digest,
+      txCheckpoint: row.checkpoint == null ? null : String(row.checkpoint),
+      txTimestamp: sourceTxTimestamp,
+    })
+  }
+
+  await transaction`
+    UPDATE transaction_blocks
+    SET derived_records_synced_at = NOW()
+    WHERE digest = ${row.digest}
+  `
+
+  return {
+    skipped: false,
+    characterChangeCount:
+      characterCreateSnapshots.length +
+      characterChanges.filter((change) => change.kind === 'delete').length,
+    killmailCount: killmailEvents.length,
+    rpcUsage,
+  }
 }
 
 export { resolvePendingKillmailRecords }

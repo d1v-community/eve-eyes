@@ -16,7 +16,10 @@
     "db:sync:transaction-block-move-calls": "node ./scripts/sync-transaction-block-move-calls.mjs",
     "db:watch:transaction-block-move-calls": "node ./scripts/watch-transaction-block-move-calls.mjs",
     "db:sync:derived-records": "node ./scripts/sync-transaction-block-derived-records.mjs",
-    "db:watch:derived-records": "node ./scripts/watch-transaction-block-derived-records.mjs"
+    "db:watch:derived-records": "node ./scripts/watch-transaction-block-derived-records.mjs",
+    "db:sync:user-activities": "node ./scripts/sync-transaction-block-user-activities.mjs",
+    "db:watch:user-activities": "node ./scripts/watch-transaction-block-user-activities.mjs",
+    "db:backfill:user-activities": "node ./scripts/backfill-user-activities-until-empty.mjs"
   },
   "dependencies": {
     "@mysten/sui": "^1.45.2",

@@ -88,6 +88,12 @@ async function main() {
         './scripts/watch-transaction-block-derived-records.mjs',
       ]),
     },
+    {
+      name: 'watch-transaction-block-user-activities',
+      child: startProcess('watch-transaction-block-user-activities', [
+        './scripts/watch-transaction-block-user-activities.mjs',
+      ]),
+    },
   ]
 
   let shuttingDown = false

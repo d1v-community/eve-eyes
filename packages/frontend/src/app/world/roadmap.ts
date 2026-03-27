@@ -44,6 +44,7 @@ export const operationsNavigation = [
 
 export const headerNavigation = [
   { href: '/', label: 'Overview' },
+  { href: '/activity', label: 'Activity' },
   { href: '/atlas', label: 'Atlas' },
   { href: '/fleet', label: 'Operations' },
 ] as const

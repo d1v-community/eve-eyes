@@ -10,8 +10,10 @@ import {
   processTransactionBlock,
 } from '../src/ingest.mjs'
 import { createLogger } from '../src/logger.mjs'
+import { resolvePendingKillmailRecords } from '../src/derived-record-sync.mjs'
 import { createSqlClient } from '../../frontend/src/app/server/db/client.mjs'
 import { runPendingMigrations } from '../../frontend/src/app/server/db/migrations.mjs'
+import { createRpcPool } from './sui-rpc-sync-helpers.mjs'
 
 function getWebhookUrl() {
   return process.env.notify_webhook?.trim() || process.env.NOTIFY_WEBHOOK?.trim() || null
@@ -126,23 +128,45 @@ async function runWithConcurrency(items, concurrency, worker) {
   await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
 }
 
-async function processDigests(sql, client, config, logger, digests, knownDigests) {
+async function processDigests(sql, client, config, logger, digests, knownDigests, rpcPool) {
   const txBlocks = await fetchTransactionBlocks(client, digests, config)
   let insertedOrUpdatedCount = 0
   let skippedCount = 0
+  let syncedDerivedCount = 0
+  let characterChangeCount = 0
+  let killmailCount = 0
+  let syncedActivityCount = 0
+  let insertedActivityCount = 0
+  let insertedParticipantCount = 0
   let latestTransactionTime = null
 
   await runWithConcurrency(txBlocks, config.processConcurrency, async (txBlock) => {
-    const result = await processTransactionBlock(sql, config, txBlock, logger)
+    const result = await processTransactionBlock(sql, config, txBlock, logger, {
+      rpcPool,
+      syncDerivedRecords: true,
+      syncUserActivities: true,
+    })
 
     if (result.stored && result.digest) {
       knownDigests.add(result.digest)
       insertedOrUpdatedCount += 1
+      syncedDerivedCount += result.derivedSynced ? 1 : 0
+      characterChangeCount += result.characterChangeCount ?? 0
+      killmailCount += result.killmailCount ?? 0
+      syncedActivityCount += result.activitySynced ? 1 : 0
+      insertedActivityCount += result.activityCount ?? 0
+      insertedParticipantCount += result.participantCount ?? 0
       latestTransactionTime = result.transactionTime ?? latestTransactionTime
       logger.info('stored transaction block', {
         digest: result.digest,
         checkpoint: result.checkpoint,
         transactionTime: result.transactionTime,
+        derivedSynced: result.derivedSynced,
+        characterChangeCount: result.characterChangeCount,
+        killmailCount: result.killmailCount,
+        activitySynced: result.activitySynced,
+        activityCount: result.activityCount,
+        participantCount: result.participantCount,
       })
       return
     }
@@ -158,6 +182,12 @@ async function processDigests(sql, client, config, logger, digests, knownDigests
   return {
     insertedOrUpdatedCount,
     skippedCount,
+    syncedDerivedCount,
+    characterChangeCount,
+    killmailCount,
+    syncedActivityCount,
+    insertedActivityCount,
+    insertedParticipantCount,
     latestTransactionTime,
   }
 }
@@ -171,6 +201,7 @@ async function main() {
 
   const sql = createSqlClient()
   const client = createSuiClient(config)
+  const rpcPool = createRpcPool()
   const migrationsDirectory = getMigrationsDirectory(config)
 
   try {
@@ -195,6 +226,12 @@ async function main() {
     let totalStored = 0
     let totalSkippedExisting = 0
     let totalSkippedNonMatching = 0
+    let totalDerivedSynced = 0
+    let totalCharacterChanges = 0
+    let totalKillmails = 0
+    let totalActivitySynced = 0
+    let totalActivityRecords = 0
+    let totalActivityParticipants = 0
     let latestTransactionTime = null
 
     for (const moduleName of modules) {
@@ -235,17 +272,41 @@ async function main() {
 
         const result =
           freshDigests.length > 0
-            ? await processDigests(sql, client, config, logger, freshDigests, knownDigests)
+            ? await processDigests(
+                sql,
+                client,
+                config,
+                logger,
+                freshDigests,
+                knownDigests,
+                rpcPool
+              )
             : {
                 insertedOrUpdatedCount: 0,
                 skippedCount: 0,
+                syncedDerivedCount: 0,
+                characterChangeCount: 0,
+                killmailCount: 0,
+                syncedActivityCount: 0,
+                insertedActivityCount: 0,
+                insertedParticipantCount: 0,
               }
 
         totalStored += result.insertedOrUpdatedCount
         moduleStored += result.insertedOrUpdatedCount
         totalSkippedExisting += duplicateCount
         totalSkippedNonMatching += result.skippedCount
+        totalDerivedSynced += result.syncedDerivedCount
+        totalCharacterChanges += result.characterChangeCount
+        totalKillmails += result.killmailCount
+        totalActivitySynced += result.syncedActivityCount
+        totalActivityRecords += result.insertedActivityCount
+        totalActivityParticipants += result.insertedParticipantCount
         latestTransactionTime = result.latestTransactionTime ?? latestTransactionTime
+
+        if (result.syncedDerivedCount > 0 && (result.characterChangeCount > 0 || result.killmailCount > 0)) {
+          await resolvePendingKillmailRecords(sql, 500)
+        }
 
         const lastEvent = events.at(-1)
         cursor = page?.nextCursor ?? lastEvent?.id ?? null
@@ -258,6 +319,12 @@ async function main() {
           duplicateDigestCount: duplicateCount,
           fetchedDigestCount: freshDigests.length,
           storedTransactionCount: result.insertedOrUpdatedCount,
+          syncedDerivedTransactionCount: result.syncedDerivedCount,
+          characterChangeCount: result.characterChangeCount,
+          killmailCount: result.killmailCount,
+          syncedActivityTransactionCount: result.syncedActivityCount,
+          insertedActivityCount: result.insertedActivityCount,
+          insertedParticipantCount: result.insertedParticipantCount,
           skippedNonMatchingCount: result.skippedCount,
           latestEventDigest: lastEvent?.id?.txDigest ?? null,
           latestEventSequence: lastEvent?.id?.eventSeq ?? null,
@@ -285,6 +352,12 @@ async function main() {
       stored: totalStored,
       skippedExisting: totalSkippedExisting,
       skippedNonMatching: totalSkippedNonMatching,
+      syncedDerivedTransactions: totalDerivedSynced,
+      characterChanges: totalCharacterChanges,
+      killmails: totalKillmails,
+      syncedActivityTransactions: totalActivitySynced,
+      insertedActivityRecords: totalActivityRecords,
+      insertedActivityParticipants: totalActivityParticipants,
       latestTransactionTime,
     }
 
@@ -296,6 +369,12 @@ async function main() {
     console.log(`stored: ${totalStored}`)
     console.log(`skipped_existing: ${totalSkippedExisting}`)
     console.log(`skipped_non_matching: ${totalSkippedNonMatching}`)
+    console.log(`synced_derived_transactions: ${totalDerivedSynced}`)
+    console.log(`character_changes: ${totalCharacterChanges}`)
+    console.log(`killmails: ${totalKillmails}`)
+    console.log(`synced_activity_transactions: ${totalActivitySynced}`)
+    console.log(`inserted_activity_records: ${totalActivityRecords}`)
+    console.log(`inserted_activity_participants: ${totalActivityParticipants}`)
     console.log(`latest_transaction_time: ${latestTransactionTime ?? 'none'}`)
 
     await sendCompletionNotification(webhookUrl, summary)

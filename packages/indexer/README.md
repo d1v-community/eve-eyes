@@ -22,11 +22,12 @@ run:
 pnpm indexer:pipeline
 ```
 
-This starts three long-running processes:
+This starts four long-running processes:
 
 - `packages/indexer/src/main.mjs`: package transaction listener with polling fallback, `transaction_blocks` writer, and optional webhook notification sender
 - `packages/indexer/scripts/watch-transaction-block-move-calls.mjs`: move-call sync watcher
 - `packages/indexer/scripts/watch-transaction-block-derived-records.mjs`: character-history + killmail-resolution watcher
+- `packages/indexer/scripts/watch-transaction-block-user-activities.mjs`: user-activity timeline watcher
 
 If you prefer to run them separately, use two terminals:
 
@@ -66,6 +67,8 @@ Key command behavior:
   - Periodically parses pending successful transactions and writes `transaction_time` into `suiscan_move_calls`.
 - `pnpm --filter indexer run db:watch:derived-records`
   - Periodically derives `character_identity` history and `killmail_records` from indexed `transaction_blocks`.
+- `pnpm --filter indexer run db:watch:user-activities`
+  - Periodically derives user-attributed activity records from transaction events and move calls.
 
 ## Other Commands
 

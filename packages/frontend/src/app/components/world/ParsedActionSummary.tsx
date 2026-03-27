@@ -14,11 +14,11 @@ function escapeRegExp(value: string) {
 
 function getEntityHref(entity: ActionEntity) {
   if (entity.kind === 'object') {
-    return `https://suiscan.xyz/testnet/object/${entity.value}/tx-blocks`
+    return `/history/${encodeURIComponent(entity.value)}`
   }
 
   if (entity.kind === 'account') {
-    return `https://suiscan.xyz/testnet/account/${entity.value}`
+    return `/history/${encodeURIComponent(entity.value)}`
   }
 
   return null
@@ -62,8 +62,6 @@ function renderEntity(
     <a
       key={key}
       href={href}
-      target="_blank"
-      rel="noreferrer"
       onClick={onClick}
       className="inline-flex align-middle"
     >
