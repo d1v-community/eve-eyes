@@ -38,6 +38,24 @@ pnpm indexer:start
 pnpm --filter indexer run db:watch:transaction-block-move-calls
 ```
 
+If `packages/indexer/src/main.mjs` is already running on your server, you do not need a second ingest process. In that case, start the watcher(s) that derive business tables from `transaction_blocks`:
+
+```bash
+pnpm --filter indexer run db:watch:derived-records
+```
+
+Add this watcher only if you also need `suiscan_move_calls` and module/function call statistics to stay fresh:
+
+```bash
+pnpm --filter indexer run db:watch:transaction-block-move-calls
+```
+
+In practice:
+
+- `main.mjs` keeps `transaction_blocks` up to date.
+- `db:watch:derived-records` keeps `building_instances`, `character_identity`, and `killmail_records` up to date.
+- `db:watch:transaction-block-move-calls` keeps `suiscan_move_calls` up to date.
+
 Key command behavior:
 
 - `pnpm --filter indexer subscribe:package`
