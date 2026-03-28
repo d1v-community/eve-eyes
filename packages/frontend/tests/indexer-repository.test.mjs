@@ -5,6 +5,7 @@ import {
   getModuleCallCounts,
   getKillmailSummary,
   listBuildingLeaderboard,
+  listPublicKillmailFeed,
   listKillmailRecords,
   listKillmailRecordsWithUsernames,
 } from '../src/app/server/indexer/repository.mjs'
@@ -415,4 +416,115 @@ test('listKillmailRecordsWithUsernames enriches parties with usernames', async (
   assert.equal(rows[0].killerUsername, 'killer-name')
   assert.equal(rows[0].victimUsername, 'victim-name')
   assert.equal(rows[0].reportedByUsername, 'killer-name')
+})
+
+test('listPublicKillmailFeed returns simplified killer and victim labels', async () => {
+  resetCharacterCreationsCache()
+  const sql = async (strings) => {
+    const text = strings.join(' ')
+
+    if (text.includes('FROM killmail_records')) {
+      return [
+        {
+          tenant: 'utopia',
+          killmail_item_id: '9000000001',
+          tx_digest: '8R8Y2mExampleDigest',
+          event_seq: '0',
+          tx_checkpoint: '802110',
+          tx_timestamp: '2026-03-27T15:37:00.000Z',
+          kill_timestamp: '2026-03-27T15:37:00.000Z',
+          kill_timestamp_unix: '1774625820',
+          loss_type: 'frigate',
+          solar_system_id: '31000142',
+          killer_character_item_id: '2112000108',
+          victim_character_item_id: '2112000113',
+          reported_by_character_item_id: '2112000108',
+          killer_wallet_address:
+            '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+          victim_wallet_address: null,
+          reported_by_wallet_address:
+            '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+          resolution_status: 'resolved',
+          resolution_error: null,
+          resolved_at: '2026-03-27T15:38:00.000Z',
+          raw_event: { id: 'event-1' },
+        },
+      ]
+    }
+
+    if (text.includes('FROM suiscan_move_calls AS smc')) {
+      return [
+        {
+          id: 1,
+          tx_digest: 'tx-1',
+          call_index: 0,
+          raw_call: {
+            arguments: [
+              { Input: 1 },
+              { Input: 0 },
+              { Input: 2 },
+              { Input: 3 },
+              { Input: 4 },
+              { Input: 5 },
+              { Input: 6 },
+            ],
+          },
+          transaction_time: '2026-03-27T15:00:00.000Z',
+          raw_content: {
+            transaction: {
+              data: {
+                transaction: {
+                  kind: 'ProgrammableTransaction',
+                  inputs: [
+                    { type: 'object', objectId: '0xadmin' },
+                    { type: 'object', objectId: '0xregistry' },
+                    { type: 'pure', value: 2112000108, valueType: 'u32' },
+                    { type: 'pure', value: 'utopia', valueType: '0x1::string::String' },
+                    { type: 'pure', value: 1000167, valueType: 'u32' },
+                    {
+                      type: 'pure',
+                      value:
+                        '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+                      valueType: 'address',
+                    },
+                    { type: 'pure', value: 'killer-name', valueType: '0x1::string::String' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ]
+    }
+
+    throw new Error(`Unexpected query: ${text}`)
+  }
+
+  const rows = await listPublicKillmailFeed(sql, {
+    status: 'resolved',
+    limit: 10,
+  })
+
+  assert.deepEqual(rows, [
+    {
+      killmailItemId: '9000000001',
+      killTimestamp: '2026-03-27T15:37:00.000Z',
+      lossType: 'frigate',
+      solarSystemId: '31000142',
+      resolutionStatus: 'resolved',
+      killer: {
+        label: 'killer-name',
+        username: 'killer-name',
+        walletAddress:
+          '0x6cd391f1b61aea06e092e45229b292ed1846edc3ddd5e2928830ce4624c211c1',
+        characterItemId: '2112000108',
+      },
+      victim: {
+        label: 'Character 2112000113',
+        username: null,
+        walletAddress: null,
+        characterItemId: '2112000113',
+      },
+    },
+  ])
 })

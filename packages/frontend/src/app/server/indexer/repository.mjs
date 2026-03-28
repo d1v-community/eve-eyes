@@ -47,6 +47,18 @@ function buildEmptyKillmailSummary() {
   }
 }
 
+function formatKillmailPartyLabel(username, walletAddress, characterItemId) {
+  if (username) {
+    return username
+  }
+
+  if (walletAddress) {
+    return walletAddress
+  }
+
+  return `Character ${characterItemId}`
+}
+
 function isMissingRelationError(error) {
   return (
     error &&
@@ -321,6 +333,38 @@ export async function listKillmailRecordsWithUsernames(sql, input = {}) {
       (record.reportedByWalletAddress
         ? walletLabels.get(record.reportedByWalletAddress)
         : null) ?? userIdLabels.get(record.reportedByCharacterItemId) ?? null,
+  }))
+}
+
+export async function listPublicKillmailFeed(sql, input = {}) {
+  const records = await listKillmailRecordsWithUsernames(sql, input)
+
+  return records.map((record) => ({
+    killmailItemId: record.killmailItemId,
+    killTimestamp: record.killTimestamp,
+    lossType: record.lossType,
+    solarSystemId: record.solarSystemId,
+    resolutionStatus: record.resolutionStatus,
+    killer: {
+      label: formatKillmailPartyLabel(
+        record.killerUsername,
+        record.killerWalletAddress,
+        record.killerCharacterItemId
+      ),
+      username: record.killerUsername,
+      walletAddress: record.killerWalletAddress,
+      characterItemId: record.killerCharacterItemId,
+    },
+    victim: {
+      label: formatKillmailPartyLabel(
+        record.victimUsername,
+        record.victimWalletAddress,
+        record.victimCharacterItemId
+      ),
+      username: record.victimUsername,
+      walletAddress: record.victimWalletAddress,
+      characterItemId: record.victimCharacterItemId,
+    },
   }))
 }
 

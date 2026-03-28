@@ -11,6 +11,8 @@
     "test": "node --test ./tests/**/*.test.mjs",
     "db:create-migration": "node ./scripts/create-migration.mjs",
     "db:migrate": "node ./scripts/run-migrations.mjs",
+    "api-key:test:local": "bash ./scripts/test-api-key-local.sh",
+    "api-key:test:remote": "bash ./scripts/test-api-key-remote.sh",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write './src/**/*.{js,jsx,ts,tsx}'",
     "deploy:firebase:init": "firebase login && firebase use --add",

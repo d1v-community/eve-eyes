@@ -298,6 +298,28 @@ export const API_DOCS: ApiDoc[] = [
     example: `curl '/api/indexer/module-call-counts'`,
   },
   {
+    id: 'indexer-killmails',
+    group: 'indexer',
+    method: 'GET',
+    path: '/api/indexer/killmails',
+    title: 'List Killmails',
+    auth: 'public',
+    summary:
+      'Returns a public killmail feed showing who killed whom and when the event happened.',
+    params: ['limit?', 'status?'],
+    notes: [
+      'Supports optional `status=resolved|pending` filtering.',
+      'Returns a simplified feed tailored for external consumers.',
+    ],
+    response: [
+      'items[].killmailItemId',
+      'items[].killTimestamp',
+      'items[].killer.label',
+      'items[].victim.label',
+    ],
+    example: `curl '/api/indexer/killmails?limit=20&status=resolved'`,
+  },
+  {
     id: 'indexer-building-leaderboard',
     group: 'indexer',
     method: 'GET',
