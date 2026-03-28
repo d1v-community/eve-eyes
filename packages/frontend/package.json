@@ -45,7 +45,7 @@
     "react-hot-toast": "^2.6.0",
     "react-use": "^17.6.0",
     "sigma": "^3.0.2",
-    "three": "^0.181.1"
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
