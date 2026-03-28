@@ -43,8 +43,10 @@ async function loadSuiSignatureTools() {
   }
 }
 
+type SuiSignatureTools = Awaited<ReturnType<typeof loadSuiSignatureTools>>
+
 async function inferSerializedSignature(
-  signatureTools,
+  signatureTools: SuiSignatureTools,
   signature: string,
   publicKey: string | null,
   walletAddress: string
