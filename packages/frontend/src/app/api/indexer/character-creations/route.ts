@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'Failed to list character creations'
+      error instanceof Error ? error.message : 'Failed to list Players'
     let status = 500
 
     if (

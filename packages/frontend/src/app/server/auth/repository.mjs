@@ -8,6 +8,8 @@ import {
 } from './crypto.mjs'
 import { normalizeWalletAddress, upsertWalletUser } from '../users/repository.mjs'
 
+const challengeCleanupKey = '__eveEyesWalletLoginChallengeCleanup'
+
 function mapChallengeRow(row) {
   return {
     id: row.id,
@@ -65,6 +67,30 @@ function normalizeApiKeyName(name) {
   return normalized
 }
 
+function scheduleWalletLoginChallengeCleanup(sql) {
+  if (globalThis[challengeCleanupKey]) {
+    return
+  }
+
+  globalThis[challengeCleanupKey] = sql`
+    WITH stale_challenges AS (
+      SELECT id
+      FROM wallet_login_challenges
+      WHERE expires_at < NOW() - INTERVAL '1 day'
+      ORDER BY expires_at ASC
+      LIMIT 200
+    )
+    DELETE FROM wallet_login_challenges
+    WHERE id IN (SELECT id FROM stale_challenges)
+  `
+    .catch(() => {
+      // Cleanup is best-effort and must never block login challenge creation.
+    })
+    .finally(() => {
+      globalThis[challengeCleanupKey] = undefined
+    })
+}
+
 export async function createWalletLoginChallenge(sql, input) {
   const walletAddress = normalizeWalletAddress(input?.walletAddress ?? '')
   const challengeId = generateOpaqueId()
@@ -84,12 +110,6 @@ export async function createWalletLoginChallenge(sql, input) {
     expiresAt: expiresAtIso,
     origin,
   })
-
-  await sql`
-    DELETE FROM wallet_login_challenges
-    WHERE expires_at < NOW() - INTERVAL '1 day'
-       OR used_at IS NOT NULL
-  `
 
   const rows = await sql`
     INSERT INTO wallet_login_challenges (
@@ -120,6 +140,8 @@ export async function createWalletLoginChallenge(sql, input) {
       expires_at,
       used_at
   `
+
+  scheduleWalletLoginChallengeCleanup(sql)
 
   return mapChallengeRow(rows[0])
 }

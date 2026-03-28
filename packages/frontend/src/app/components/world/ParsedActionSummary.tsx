@@ -43,6 +43,7 @@ function renderEntity(
   onClick?: (event: MouseEvent<HTMLElement>) => void
 ) {
   const href = getEntityHref(entity)
+  const hasDisplayValue = Boolean(entity.displayValue && entity.displayValue !== entity.value)
   const content = (
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold leading-5 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition duration-150 ${getKindClassName(entity.kind)} ${href ? 'hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(14,165,233,0.18)]' : ''}`}
@@ -52,7 +53,16 @@ function renderEntity(
           : `${entity.kind} · ${entity.value}`
       }
     >
-      <span className="break-all">{entity.displayValue ?? entity.value}</span>
+      <span
+        className={`break-all ${hasDisplayValue ? 'rounded-full bg-white/80 px-2 py-0.5 text-fuchsia-700 ring-1 ring-fuchsia-300/70 dark:bg-slate-950/55 dark:text-fuchsia-200 dark:ring-fuchsia-700/70' : ''}`}
+      >
+        {entity.displayValue ?? entity.value}
+      </span>
+      {hasDisplayValue ? (
+        <span className="max-w-[12rem] truncate text-[10px] opacity-75" title={entity.value}>
+          {entity.value}
+        </span>
+      ) : null}
       <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] opacity-80">
         {entity.kind}
       </span>

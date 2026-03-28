@@ -54,6 +54,7 @@ export const operationsNavigation = [
 
 export const headerNavigation = [
   { href: '/', label: 'Overview' },
+  { href: '/indexer/character-creations', label: 'Players' },
   { href: '/activity', label: 'Activity' },
   { href: '/atlas', label: 'Atlas' },
   { href: '/fleet', label: 'Operations' },

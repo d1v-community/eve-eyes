@@ -108,6 +108,24 @@ function formatPartyLabel(
   return walletAddress ? truncateValue(walletAddress, 10, 6) : `Character ${characterItemId}`
 }
 
+function renderPartyLabel(
+  username: string | null,
+  walletAddress: string | null,
+  characterItemId: string
+) {
+  const label = formatPartyLabel(username, walletAddress, characterItemId)
+
+  if (!username) {
+    return <span>{label}</span>
+  }
+
+  return (
+    <span className="inline-flex rounded-full bg-fuchsia-100/90 px-2 py-0.5 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70">
+      {label}
+    </span>
+  )
+}
+
 function buildStatusHref(status: string | null, selectedKillmailId: string | null) {
   const params = new URLSearchParams()
 
@@ -301,7 +319,7 @@ export default async function KillmailsPage({
                             Victim
                           </span>
                           <span className="font-data text-sm text-slate-700 dark:text-slate-200">
-                            {formatPartyLabel(
+                            {renderPartyLabel(
                               record.victimUsername,
                               record.victimWalletAddress,
                               record.victimCharacterItemId
@@ -314,7 +332,7 @@ export default async function KillmailsPage({
                             Killer
                           </span>
                           <span className="font-data text-sm text-slate-700 dark:text-slate-200">
-                            {formatPartyLabel(
+                            {renderPartyLabel(
                               record.killerUsername,
                               record.killerWalletAddress,
                               record.killerCharacterItemId
@@ -400,8 +418,16 @@ export default async function KillmailsPage({
                             href={`/history/${encodeURIComponent(selectedKillmail.victimWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {selectedKillmail.victimUsername ??
-                              truncateValue(selectedKillmail.victimWalletAddress, 10, 6)}
+                            <span
+                              className={
+                                selectedKillmail.victimUsername
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2 py-0.5 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                  : ''
+                              }
+                            >
+                              {selectedKillmail.victimUsername ??
+                                truncateValue(selectedKillmail.victimWalletAddress, 10, 6)}
+                            </span>
                           </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">
@@ -427,8 +453,16 @@ export default async function KillmailsPage({
                             href={`/history/${encodeURIComponent(selectedKillmail.killerWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {selectedKillmail.killerUsername ??
-                              truncateValue(selectedKillmail.killerWalletAddress, 10, 6)}
+                            <span
+                              className={
+                                selectedKillmail.killerUsername
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2 py-0.5 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                  : ''
+                              }
+                            >
+                              {selectedKillmail.killerUsername ??
+                                truncateValue(selectedKillmail.killerWalletAddress, 10, 6)}
+                            </span>
                           </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">
@@ -463,8 +497,16 @@ export default async function KillmailsPage({
                             href={`/history/${encodeURIComponent(selectedKillmail.reportedByWalletAddress)}`}
                             className="font-data text-sm text-slate-950 underline-offset-4 hover:text-sky-700 hover:underline dark:text-white dark:hover:text-sky-300"
                           >
-                            {selectedKillmail.reportedByUsername ??
-                              truncateValue(selectedKillmail.reportedByWalletAddress, 10, 6)}
+                            <span
+                              className={
+                                selectedKillmail.reportedByUsername
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2 py-0.5 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                  : ''
+                              }
+                            >
+                              {selectedKillmail.reportedByUsername ??
+                                truncateValue(selectedKillmail.reportedByWalletAddress, 10, 6)}
+                            </span>
                           </Link>
                         ) : (
                           <div className="font-data text-sm text-slate-950 dark:text-white">

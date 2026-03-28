@@ -1,4 +1,3 @@
-import { resolveRequestAuth } from '~~/server/auth/request.mjs'
 import { getSqlClient } from '~~/server/db/client.mjs'
 import { searchCharacterUsers } from '~~/server/indexer/character-directory.mjs'
 
@@ -19,12 +18,6 @@ function json(data: unknown, init?: ResponseInit) {
 export async function GET(request: Request) {
   try {
     const sql = getSqlClient()
-    const auth = await resolveRequestAuth(sql, request)
-
-    if (auth.type === 'anonymous') {
-      throw new Error('authentication is required for this endpoint')
-    }
-
     const url = new URL(request.url)
     const q = url.searchParams.get('q')
     const walletAddress = url.searchParams.get('walletAddress')
@@ -48,7 +41,7 @@ export async function GET(request: Request) {
     return json({
       ...result,
       auth: {
-        type: auth.type,
+        type: 'anonymous',
       },
     })
   } catch (error) {
@@ -56,11 +49,7 @@ export async function GET(request: Request) {
       error instanceof Error ? error.message : 'Failed to search character users'
     let status = 500
 
-    if (message === 'authentication is required for this endpoint') {
-      status = 401
-    } else if (message === 'API key is invalid') {
-      status = 401
-    } else if (message === 'API key rate limit exceeded') {
+    if (message === 'API key rate limit exceeded') {
       status = 429
     }
 

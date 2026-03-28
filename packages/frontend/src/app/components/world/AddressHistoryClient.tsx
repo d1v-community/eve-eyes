@@ -340,6 +340,13 @@ export default function AddressHistoryClient({ address }: { address: string }) {
                           <h3 className="font-display text-xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
                             {item.moduleName ?? 'unknown'}::{item.functionName ?? item.activityType}
                           </h3>
+                          {item.username ? (
+                            <div className="mt-2">
+                              <span className="inline-flex rounded-full border border-fuchsia-300/80 bg-fuchsia-100/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-800 dark:border-fuchsia-800/80 dark:bg-fuchsia-950/40 dark:text-fuchsia-200">
+                                {item.username}
+                              </span>
+                            </div>
+                          ) : null}
                           <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
                             {item.summary}
                           </p>
@@ -392,7 +399,13 @@ export default function AddressHistoryClient({ address }: { address: string }) {
                                   <span className="uppercase tracking-[0.18em] opacity-70">
                                     {participant.role.replaceAll('_', ' ')}
                                   </span>
-                                  <span className={participant.username ? '' : 'font-mono'}>
+                                  <span
+                                    className={
+                                      participant.username
+                                        ? 'rounded-full bg-fuchsia-100/90 px-2 py-0.5 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                        : 'font-mono'
+                                    }
+                                  >
                                     {participant.username
                                       ? formatParticipantChip(participant)
                                       : truncateValue(

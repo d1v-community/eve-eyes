@@ -3,7 +3,14 @@
 import { useCurrentWallet } from '@mysten/dapp-kit'
 import Balance from '@suiware/kit/Balance'
 import NetworkType from '@suiware/kit/NetworkType'
-import { Activity, Compass, FolderKanban, KeyRound, Radar } from 'lucide-react'
+import {
+  Activity,
+  Compass,
+  FolderKanban,
+  KeyRound,
+  Orbit,
+  Radar,
+} from 'lucide-react'
 import { APP_NAME } from '../../config/main'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -18,6 +25,7 @@ type HeaderHref = (typeof headerNavigation)[number]['href']
 
 const navIcons = {
   '/': Compass,
+  '/indexer/character-creations': Orbit,
   '/activity': Activity,
   '/atlas': Radar,
   '/fleet': FolderKanban,

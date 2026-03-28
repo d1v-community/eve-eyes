@@ -38,6 +38,9 @@ export default function LeaderboardOwnerCell({
   const primaryLabel = username ?? truncateWallet(walletAddress)
   const secondaryLabel =
     username && walletAddress ? truncateWallet(walletAddress) : userId ? `User ID ${userId}` : null
+  const primaryLabelClassName = username
+    ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/80'
+    : ''
 
   return (
     <div className="min-w-0">
@@ -50,14 +53,14 @@ export default function LeaderboardOwnerCell({
             className={`min-w-0 truncate underline-offset-4 transition hover:text-sky-700 hover:underline dark:hover:text-sky-300 ${walletClassName}`}
             title={walletAddress ?? undefined}
           >
-            {primaryLabel}
+            <span className={primaryLabelClassName}>{primaryLabel}</span>
           </a>
         ) : (
           <div
             className={`min-w-0 truncate ${walletClassName}`}
             title="Wallet unavailable"
           >
-            {primaryLabel}
+            <span className={primaryLabelClassName}>{primaryLabel}</span>
           </div>
         )}
 
