@@ -1,4 +1,5 @@
 import postgres from 'postgres'
+import { getDatabaseConnectTimeoutSeconds } from '../auth/config.mjs'
 
 const globalKey = '__sdsSqlClient'
 
@@ -37,7 +38,7 @@ export function createSqlClient(databaseUrl = getDatabaseUrl(), options = {}) {
     ssl: 'require',
     max: resolvePoolMax(options.max),
     idle_timeout: 20,
-    connect_timeout: 20,
+    connect_timeout: getDatabaseConnectTimeoutSeconds(),
     prepare: false,
   })
 }

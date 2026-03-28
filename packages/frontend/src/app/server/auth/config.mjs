@@ -4,6 +4,7 @@ const DEFAULT_FREE_PAGE_LIMIT = 3
 const DEFAULT_PAGE_SIZE = 20
 const DEFAULT_MAX_PAGE_SIZE = 50
 const DEFAULT_API_KEY_LIMIT = 10
+const DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS = 5
 
 function parsePositiveInteger(value, fallback, label) {
   if (value === undefined) {
@@ -84,5 +85,13 @@ export function getMaxApiKeysPerUser() {
     process.env.MAX_API_KEYS_PER_USER,
     DEFAULT_API_KEY_LIMIT,
     'MAX_API_KEYS_PER_USER'
+  )
+}
+
+export function getDatabaseConnectTimeoutSeconds() {
+  return parsePositiveInteger(
+    process.env.DATABASE_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS,
+    'DATABASE_CONNECT_TIMEOUT_SECONDS'
   )
 }

@@ -1,8 +1,3 @@
-import { parseSerializedSignature, toSerializedSignature } from '@mysten/sui/cryptography'
-import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519'
-import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1'
-import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1'
-import { verifyPersonalMessageSignature } from '@mysten/sui/verify'
 import { ACCESS_TOKEN_COOKIE_NAME, serializeCookie } from '~~/server/auth/cookies.mjs'
 import { getJwtTtlSeconds } from '~~/server/auth/config.mjs'
 import { signAccessToken } from '~~/server/auth/jwt.mjs'
@@ -23,11 +18,44 @@ function decodeBase64(value: string) {
   return Uint8Array.from(Buffer.from(value, 'base64'))
 }
 
-function inferSerializedSignature(
+async function loadSuiSignatureTools() {
+  const [
+    cryptography,
+    ed25519,
+    secp256k1,
+    secp256r1,
+    verify,
+  ] = await Promise.all([
+    import('@mysten/sui/cryptography'),
+    import('@mysten/sui/keypairs/ed25519'),
+    import('@mysten/sui/keypairs/secp256k1'),
+    import('@mysten/sui/keypairs/secp256r1'),
+    import('@mysten/sui/verify'),
+  ])
+
+  return {
+    parseSerializedSignature: cryptography.parseSerializedSignature,
+    toSerializedSignature: cryptography.toSerializedSignature,
+    Ed25519PublicKey: ed25519.Ed25519PublicKey,
+    Secp256k1PublicKey: secp256k1.Secp256k1PublicKey,
+    Secp256r1PublicKey: secp256r1.Secp256r1PublicKey,
+    verifyPersonalMessageSignature: verify.verifyPersonalMessageSignature,
+  }
+}
+
+async function inferSerializedSignature(
+  signatureTools,
   signature: string,
   publicKey: string | null,
   walletAddress: string
 ) {
+  const {
+    parseSerializedSignature,
+    toSerializedSignature,
+    Ed25519PublicKey,
+    Secp256k1PublicKey,
+    Secp256r1PublicKey,
+  } = signatureTools
   const normalizedSignature = signature.trim()
 
   try {
@@ -94,11 +122,14 @@ export async function POST(request: Request) {
       walletName: payload?.walletName ?? null,
     })
     const messageBytes = new TextEncoder().encode(preparedLogin.challenge.message)
-    const signature = inferSerializedSignature(
+    const signatureTools = await loadSuiSignatureTools()
+    const signature = await inferSerializedSignature(
+      signatureTools,
       payload.signature,
       typeof payload?.publicKey === 'string' ? payload.publicKey.trim() : null,
       preparedLogin.walletAddress
     )
+    const { verifyPersonalMessageSignature } = signatureTools
 
     const isValid = await verifyPersonalMessageSignature(messageBytes, signature, {
       address: preparedLogin.walletAddress,
@@ -118,6 +149,7 @@ export async function POST(request: Request) {
       sub: loginResult.user.id,
       walletAddress: loginResult.user.walletAddress,
       chain: loginResult.user.chain,
+      user: loginResult.user,
     })
     const response = json({
       token,

@@ -31,6 +31,36 @@ test.after(() => {
   process.env.AUTH_SECRET = originalAuthSecret
 })
 
+test('request auth resolves JWT callers from token user snapshot without a database lookup', async () => {
+  const { token } = signAccessToken({
+    sub: 'user-1',
+    walletAddress: '0x1234',
+    chain: 'sui',
+    user: {
+      id: 'user-1',
+      walletAddress: '0x1234',
+      walletName: 'Snapshot Wallet',
+      chain: 'sui',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lastSeenAt: '2026-01-01T00:00:00.000Z',
+    },
+  })
+
+  const auth = await requireJwtRequest(
+    Object.freeze({}),
+    new Request('http://localhost/api/auth/me', {
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+  )
+
+  assert.equal(auth.type, 'jwt')
+  assert.equal(auth.userId, 'user-1')
+  assert.equal(auth.user.walletName, 'Snapshot Wallet')
+})
+
 test('request auth resolves anonymous, jwt, and api key callers', async (t) => {
   if (!databaseUrl) {
     t.skip('DATABASE_URL is not configured')

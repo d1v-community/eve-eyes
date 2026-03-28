@@ -147,27 +147,28 @@ export default function JumpsAccessPanel() {
 
   useEffect(() => {
     startTransition(() => {
-      loadSession().catch((error) => {
+      Promise.all([
+        loadSession(),
+        loadApiKeys().catch((error) => {
+          if (
+            error instanceof Error &&
+            ['authentication is required', 'JWT authentication is required'].includes(
+              error.message
+            )
+          ) {
+            setApiKeys([])
+            return
+          }
+
+          throw error
+        }),
+      ]).catch((error) => {
         setErrorMessage(
           error instanceof Error ? error.message : 'Failed to load session'
         )
       })
     })
-  }, [loadSession])
-
-  useEffect(() => {
-    if (!user) {
-      return
-    }
-
-    startTransition(() => {
-      loadApiKeys().catch((error) => {
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Failed to load API keys'
-        )
-      })
-    })
-  }, [loadApiKeys, user])
+  }, [loadApiKeys, loadSession])
 
   useEffect(() => {
     if (!isAgentDocOpen) {
@@ -215,7 +216,7 @@ export default function JumpsAccessPanel() {
     const payload = await parseJsonResponse(response)
 
     setLatestCreatedApiKey(payload.apiKey)
-    await loadApiKeys()
+    setApiKeys((current) => [payload.record as ApiKeyRecord, ...current])
 
     return payload.apiKey as string
   }
@@ -243,7 +244,7 @@ export default function JumpsAccessPanel() {
       const payload = await parseJsonResponse(response)
 
       setLatestCreatedApiKey(payload.apiKey)
-      await loadApiKeys()
+      setApiKeys((current) => [payload.record as ApiKeyRecord, ...current])
       setSuccessMessage(
         'API key created. Copy it now; the full value is only shown once.'
       )
@@ -279,7 +280,6 @@ export default function JumpsAccessPanel() {
       window.setTimeout(() => {
         setApiKeys((current) => current.filter((item) => item.id !== apiKeyId))
         setExitingKeyIds((current) => current.filter((id) => id !== apiKeyId))
-        void loadApiKeys()
       }, 420)
     } catch (error) {
       const message =

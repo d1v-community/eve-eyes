@@ -1,5 +1,5 @@
 import { ACCESS_TOKEN_COOKIE_NAME, parseCookies } from './cookies.mjs'
-import { verifyAccessToken } from './jwt.mjs'
+import { buildTokenUser, verifyAccessToken } from './jwt.mjs'
 import {
   enforceApiKeyRateLimit,
   findApiKeyByValue,
@@ -68,6 +68,17 @@ export async function resolveRequestAuth(sql, request) {
   }
 
   const payload = verifyAccessToken(token)
+  const tokenUser = buildTokenUser(payload.user)
+
+  if (tokenUser) {
+    return {
+      type: 'jwt',
+      tokenPayload: payload,
+      userId: tokenUser.id,
+      user: tokenUser,
+    }
+  }
+
   const user = await findWalletUserByAddress(sql, payload.walletAddress ?? payload.sub)
 
   if (!user) {
