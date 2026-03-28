@@ -12,6 +12,12 @@ export type ApiDoc = {
   params?: string[]
   response: string[]
   example: string
+  testRequest?: {
+    method?: ApiDoc['method']
+    path: string
+    headers?: Record<string, string>
+    body?: string
+  }
 }
 
 export type ApiGroup = {
@@ -129,6 +135,9 @@ export const API_DOCS: ApiDoc[] = [
     response: ['auth.type', 'auth.userId', 'user'],
     example: `curl '/api/auth/me' \\
   -H 'Authorization: Bearer <jwt>'`,
+    testRequest: {
+      path: '/api/auth/me',
+    },
   },
   {
     id: 'auth-api-keys-list',
@@ -143,6 +152,9 @@ export const API_DOCS: ApiDoc[] = [
     response: ['apiKeys[]'],
     example: `curl '/api/auth/api-keys' \\
   -H 'Authorization: Bearer <jwt>'`,
+    testRequest: {
+      path: '/api/auth/api-keys',
+    },
   },
   {
     id: 'auth-api-keys-create',
@@ -208,6 +220,9 @@ export const API_DOCS: ApiDoc[] = [
     response: ['items[]', 'pagination', 'auth.type'],
     example: `curl '/api/indexer/transaction-blocks?page=4&pageSize=20&status=success' \\
   -H 'Authorization: ApiKey <api-key>'`,
+    testRequest: {
+      path: '/api/indexer/transaction-blocks?page=1&pageSize=5',
+    },
   },
   {
     id: 'indexer-transaction-block-detail',
@@ -222,6 +237,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Used by the transaction detail page after the tab opens.'],
     response: ['item.digest', 'item.rawContent', 'item.effects', 'item.events'],
     example: `curl '/api/indexer/transaction-blocks/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf'`,
+    testRequest: {
+      path: '/api/indexer/transaction-blocks/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf',
+    },
   },
   {
     id: 'indexer-transaction-move-calls',
@@ -239,6 +257,9 @@ export const API_DOCS: ApiDoc[] = [
     ],
     response: ['items[]'],
     example: `curl '/api/indexer/transaction-blocks/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf/move-calls?includeActionSummary=1'`,
+    testRequest: {
+      path: '/api/indexer/transaction-blocks/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf/move-calls?includeActionSummary=1',
+    },
   },
   {
     id: 'indexer-move-calls',
@@ -269,6 +290,9 @@ export const API_DOCS: ApiDoc[] = [
     response: ['items[]', 'pagination', 'auth.type'],
     example: `curl '/api/indexer/move-calls?page=4&pageSize=20&packageId=0x2&moduleName=world&functionName=jump' \\
   -H 'x-api-key: <api-key>'`,
+    testRequest: {
+      path: '/api/indexer/move-calls?page=1&pageSize=5',
+    },
   },
   {
     id: 'indexer-move-call-detail',
@@ -283,6 +307,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Used by the move call detail page after it opens in a new tab.'],
     response: ['item.actionSummary', 'item.actionEntities', 'item.rawCall'],
     example: `curl '/api/indexer/move-calls/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf/271'`,
+    testRequest: {
+      path: '/api/indexer/move-calls/3iL1saWuDmg7tq4YaEVKXt7r9tAMHm36f5v4Lt7eBDqf/271',
+    },
   },
   {
     id: 'indexer-module-call-counts',
@@ -296,6 +323,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Used by the 5-second refresh module summary UI.'],
     response: ['modules[]'],
     example: `curl '/api/indexer/module-call-counts'`,
+    testRequest: {
+      path: '/api/indexer/module-call-counts',
+    },
   },
   {
     id: 'indexer-killmails',
@@ -318,6 +348,9 @@ export const API_DOCS: ApiDoc[] = [
       'items[].victim.label',
     ],
     example: `curl '/api/indexer/killmails?limit=20&status=resolved'`,
+    testRequest: {
+      path: '/api/indexer/killmails?limit=5&status=resolved',
+    },
   },
   {
     id: 'indexer-building-leaderboard',
@@ -337,6 +370,9 @@ export const API_DOCS: ApiDoc[] = [
     ],
     response: ['ok', 'apiVersion', 'auth.type', 'leaderboard[]', 'errorCode?'],
     example: `curl '/api/v1/indexer/building-leaderboard?limit=10&moduleName=gate'`,
+    testRequest: {
+      path: '/api/v1/indexer/building-leaderboard?limit=5',
+    },
   },
   {
     id: 'world-route',
@@ -350,6 +386,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Both ids must be numeric query params.'],
     response: ['route'],
     example: `curl '/api/world/route?originId=30000142&destinationId=30002510'`,
+    testRequest: {
+      path: '/api/world/route?originId=30000142&destinationId=30002510',
+    },
   },
   {
     id: 'world-system-search',
@@ -364,6 +403,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Returns lightweight search results under `data`.'],
     response: ['data[]'],
     example: `curl '/api/world/systems/search?q=jita'`,
+    testRequest: {
+      path: '/api/world/systems/search?q=jita',
+    },
   },
   {
     id: 'world-system-detail',
@@ -378,6 +420,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['Returns `400` when the id is not numeric.'],
     response: ['system payload'],
     example: `curl '/api/world/systems/30000142'`,
+    testRequest: {
+      path: '/api/world/systems/30000142',
+    },
   },
   {
     id: 'world-modules-summary',
@@ -391,6 +436,9 @@ export const API_DOCS: ApiDoc[] = [
     notes: ['This endpoint is cached with `revalidate = 60`.'],
     response: ['modules[]'],
     example: `curl '/api/world/modules-summary'`,
+    testRequest: {
+      path: '/api/world/modules-summary',
+    },
   },
   {
     id: 'users-get',

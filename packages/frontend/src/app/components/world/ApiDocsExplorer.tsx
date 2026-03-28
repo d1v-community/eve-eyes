@@ -1,13 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Braces, Link2 } from 'lucide-react'
+import { Braces, Link2, LoaderCircle, Play } from 'lucide-react'
 import {
   API_DOCS,
   API_GROUPS,
   type ApiDoc,
   getAuthLabel,
 } from './api-docs-catalog'
+import { notification } from '../../helpers/notification'
 
 function getMethodClassName(method: ApiDoc['method']) {
   if (method === 'GET') {
@@ -40,12 +41,55 @@ export default function ApiDocsExplorer() {
     []
   )
   const [activeDocId, setActiveDocId] = useState(initialDoc)
+  const [testingDocId, setTestingDocId] = useState<string | null>(null)
 
   const groupDocs = API_DOCS.filter((doc) => doc.group === activeGroup)
   const activeDoc =
     groupDocs.find((doc) => doc.id === activeDocId) ??
     groupDocs[0] ??
     API_DOCS[0]
+
+  async function handleTestApi(doc: ApiDoc) {
+    if (!doc.testRequest) {
+      notification.error(
+        null,
+        'This endpoint needs custom input or changes data, so automatic testing is disabled.'
+      )
+      return
+    }
+
+    setTestingDocId(doc.id)
+    const toastId = notification.loading(`Testing ${doc.method} ${doc.path}...`)
+
+    try {
+      const response = await fetch(doc.testRequest.path, {
+        method: doc.testRequest.method ?? doc.method,
+        headers: doc.testRequest.headers,
+        body: doc.testRequest.body,
+        credentials: 'include',
+      })
+
+      if (response.status === 200) {
+        notification.success(`API returned 200 for ${doc.path}`, toastId)
+        return
+      }
+
+      const payload = await response.json().catch(() => null)
+      const errorMessage =
+        typeof payload?.error === 'string'
+          ? payload.error
+          : `Request failed with status ${response.status}`
+      notification.error(null, errorMessage, toastId)
+    } catch (error) {
+      notification.error(
+        error instanceof Error ? error : null,
+        error instanceof Error ? error.message : 'Failed to test API',
+        toastId
+      )
+    } finally {
+      setTestingDocId(null)
+    }
+  }
 
   return (
     <article className="bg-white/92 rounded-[2rem] border border-slate-200/70 p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-[linear-gradient(180deg,rgba(3,8,18,0.98),rgba(8,16,30,0.95))]">
@@ -179,13 +223,30 @@ export default function ApiDocsExplorer() {
                 {activeDoc.summary}
               </p>
             </div>
-            <a
-              href={`#${activeDoc.id}`}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 transition hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-100"
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              Deep Link
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void handleTestApi(activeDoc)
+                }}
+                disabled={testingDocId === activeDoc.id}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-100"
+              >
+                {testingDocId === activeDoc.id ? (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                {testingDocId === activeDoc.id ? 'Testing' : 'Test API'}
+              </button>
+              <a
+                href={`#${activeDoc.id}`}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 transition hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-100"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                Deep Link
+              </a>
+            </div>
           </div>
 
           <div id={activeDoc.id} className="mt-5 space-y-5">
