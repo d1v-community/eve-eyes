@@ -44,6 +44,39 @@ type CharacterUserSearchResponse = {
   error?: string
 }
 
+function buildCharacterUserDetailHref({
+  walletAddress,
+  username,
+  userId,
+  tenant,
+}: {
+  walletAddress?: string | null
+  username?: string | null
+  userId?: string | null
+  tenant?: string | null
+}) {
+  const params = new URLSearchParams()
+
+  if (walletAddress) {
+    params.set('walletAddress', walletAddress)
+  }
+
+  if (username) {
+    params.set('username', username)
+  }
+
+  if (userId) {
+    params.set('userId', userId)
+  }
+
+  if (tenant) {
+    params.set('tenant', tenant)
+  }
+
+  const query = params.toString()
+  return query ? `/indexer/character-users?${query}` : null
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return 'Pending'
@@ -358,15 +391,28 @@ export default function CharacterCreationsClient({
                     >
                       <td className="px-4 py-4">
                         <div className="font-semibold text-slate-950 dark:text-white">
-                          <span
-                            className={
-                              profile.username
-                                ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
-                                : ''
-                            }
-                          >
-                            {profile.username ?? 'Unknown'}
-                          </span>
+                          {buildCharacterUserDetailHref(profile) ? (
+                            <Link
+                              href={buildCharacterUserDetailHref(profile) ?? '#'}
+                              className={
+                                profile.username
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 transition hover:bg-fuchsia-200/90 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70 dark:hover:bg-fuchsia-900/60'
+                                  : 'transition hover:text-sky-700 hover:underline dark:hover:text-sky-300'
+                              }
+                            >
+                              {profile.username ?? 'Unknown'}
+                            </Link>
+                          ) : (
+                            <span
+                              className={
+                                profile.username
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                  : ''
+                              }
+                            >
+                              {profile.username ?? 'Unknown'}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">
                           user_id {profile.userId ?? 'unknown'}
@@ -438,15 +484,28 @@ export default function CharacterCreationsClient({
                       </span>
                       <div>
                         <div className="font-semibold text-slate-950 dark:text-white">
-                          <span
-                            className={
-                              item.username
-                                ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
-                                : ''
-                            }
-                          >
-                            {item.username ?? 'Unknown'}
-                          </span>
+                          {buildCharacterUserDetailHref(item) ? (
+                            <Link
+                              href={buildCharacterUserDetailHref(item) ?? '#'}
+                              className={
+                                item.username
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 transition hover:bg-fuchsia-200/90 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70 dark:hover:bg-fuchsia-900/60'
+                                  : 'transition hover:text-sky-700 hover:underline dark:hover:text-sky-300'
+                              }
+                            >
+                              {item.username ?? 'Unknown'}
+                            </Link>
+                          ) : (
+                            <span
+                              className={
+                                item.username
+                                  ? 'rounded-full bg-fuchsia-100/90 px-2.5 py-1 text-fuchsia-800 ring-1 ring-fuchsia-300/70 dark:bg-fuchsia-950/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/70'
+                                  : ''
+                              }
+                            >
+                              {item.username ?? 'Unknown'}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">
                           user_id {item.userId ?? 'unknown'}

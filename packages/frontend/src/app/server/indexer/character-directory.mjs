@@ -109,6 +109,11 @@ function normalizeText(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function normalizeTextLower(value) {
+  const normalized = normalizeText(value)
+  return normalized ? normalized.toLowerCase() : null
+}
+
 function normalizeNumberLike(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return String(value)
@@ -332,7 +337,7 @@ export async function searchCharacterUsers(
   { q = null, walletAddress = null, username = null, userId = null } = {}
 ) {
   const normalizedWalletAddress = normalizeAddress(walletAddress ?? q)
-  const normalizedUsername = normalizeText(username ?? q)?.toLowerCase() ?? null
+  const normalizedUsername = normalizeTextLower(username ?? q)
   const normalizedUserId = normalizeNumberLike(userId ?? q)
   const creations = await listAllCharacterCreations(sql)
 
@@ -360,6 +365,68 @@ export async function searchCharacterUsers(
     },
     profiles: groupCharacterUserProfiles(matched),
   }
+}
+
+/**
+ * @param {import('postgres').Sql<any>} sql
+ * @param {{
+ *   walletAddress?: string | null
+ *   username?: string | null
+ *   userId?: string | null
+ *   tenant?: string | null
+ * }} [input]
+ */
+export async function getCharacterUserProfile(
+  sql,
+  { walletAddress = null, username = null, userId = null, tenant = null } = {}
+) {
+  const normalizedWalletAddress = normalizeAddress(walletAddress)
+  const normalizedUsername = normalizeTextLower(username)
+  const normalizedUserId = normalizeNumberLike(userId)
+  const normalizedTenant = normalizeTextLower(tenant)
+
+  if (
+    !normalizedWalletAddress &&
+    !normalizedUsername &&
+    !normalizedUserId &&
+    !normalizedTenant
+  ) {
+    return null
+  }
+
+  const creations = await listAllCharacterCreations(sql)
+  const profiles = groupCharacterUserProfiles(creations)
+
+  return (
+    profiles.find((profile) => {
+      if (
+        normalizedWalletAddress &&
+        profile.walletAddress !== normalizedWalletAddress
+      ) {
+        return false
+      }
+
+      if (normalizedUserId && profile.userId !== normalizedUserId) {
+        return false
+      }
+
+      if (
+        normalizedUsername &&
+        normalizeTextLower(profile.username) !== normalizedUsername
+      ) {
+        return false
+      }
+
+      if (
+        normalizedTenant &&
+        normalizeTextLower(profile.tenant) !== normalizedTenant
+      ) {
+        return false
+      }
+
+      return true
+    }) ?? null
+  )
 }
 
 export async function enrichActionEntitiesWithUsernames(sql, entities) {
