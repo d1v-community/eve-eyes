@@ -52,6 +52,7 @@ const Footer = () => {
             href="https://x.com/0xHOH"
             target="_blank"
             rel="noopener noreferrer"
+            className="text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-100 dark:hover:text-white"
             highContrast={true}
           >
             @0xHOH
@@ -61,6 +62,7 @@ const Footer = () => {
             href="https://x.com/d1v_lab"
             target="_blank"
             rel="noopener noreferrer"
+            className="text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-100 dark:hover:text-white"
             highContrast={true}
           >
             @d1v_lab

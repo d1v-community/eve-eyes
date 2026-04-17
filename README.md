@@ -1,64 +1,163 @@
 # EVE EYES
 
-EVE EYES is an open-source on-chain intelligence console for the EVE Frontier ecosystem. It turns raw Sui testnet activity into a usable product surface: searchable records, route and world exploration, wallet-aware access, and API-ready datasets for builders, players, and competition teams.
+EVE EYES is an open-source on-chain intelligence console for the EVE Frontier ecosystem. It turns raw Sui activity and World API data into a product-ready surface for players, builders, and hackathon teams: searchable records, route intelligence, verifiable world data, wallet-gated access, and reusable APIs.
 
 [Live Product](https://eve-eyes.d0v.xyz/)
 
 [中文版本](./README.zh-CN.md)
 
-## Overview
+## Product Positioning
 
-Most on-chain game data is technically public but practically hard to use. Transactions are noisy, object state is fragmented, and explorers are optimized for inspection rather than product workflows.
+EVE EYES is an on-chain game data indexer and intelligence layer for EVE Frontier.
 
-EVE EYES solves that gap by combining three layers in one system:
+It sits between raw blockchain activity and downstream game products. Instead of asking teams to parse transactions, infer state changes, and build their own query surfaces from scratch, EVE EYES turns chain activity into structured gameplay data, operator views, and reusable APIs.
 
-- a player-facing interface for exploring world and chain activity
-- an indexer pipeline that turns raw transaction blocks into structured records
-- an API layer that lets downstream tools reuse the indexed data directly
+In one line:
 
-The result is a project that is useful both as a standalone product and as infrastructure for other builders.
+> EVE EYES is a competition-ready on-chain game data indexer, intelligence console, and API layer for EVE Frontier.
 
-## Live Product
+## What Problem We Solve
 
-- Website: [https://eve-eyes.d0v.xyz/](https://eve-eyes.d0v.xyz/)
-- Current focus: indexed transaction data, Move-call views, world exploration, wallet login, API access, and derived gameplay records such as building and killmail data
+Many on-chain game projects run into the same bottleneck:
+
+- game data is public, but hard to use in a product workflow
+- raw transactions are technically visible, but not readable for most users
+- hackathon teams spend too much time cleaning data before building ideas
+- demos often stop at presentation, without reusable infrastructure
+
+EVE EYES solves this by turning raw on-chain activity into an operational product with UI, indexed storage, derived records, and APIs.
+
+Players, designers, and builders do not want raw chain logs. They want actionable gameplay information:
+
+- Where can I go?
+- What changed in the world?
+- Who owns what?
+- What happened in combat or construction?
+- Can I trust the data and share it?
+
+EVE EYES answers those needs through route planning, atlas exploration, indexed move-call history, building leaderboards, killmail records, POD verification, wallet identity, and API-based reuse.
+
+## How We Solve It
+
+EVE EYES combines three layers into one product stack:
+
+- Experience layer: a themed operator console for world exploration, intel lookup, and access management
+- Data layer: an indexer pipeline that ingests package-related Sui transactions and normalizes them into PostgreSQL
+- Reuse layer: HTTP APIs, wallet login, JWT sessions, and API keys for downstream tools and automations
+
+This makes the project useful in three ways:
+
+- as a player-facing intelligence product
+- as a game data infrastructure tool
+- as a foundation that other teams can build on top of
+
+## Why This Matters In A Competition
+
+- Clear demand: it removes a real bottleneck between raw on-chain data and actual game features
+- Complete loop: not just visualization, but ingest, storage, derivation, query, auth, and reuse
+- Strong fit to theme: the UI feels like a game operations surface instead of a generic dashboard
+- Extensible value: multiple projects can build directly on top of the indexed datasets and APIs
+- Demonstrable execution: live deployment, working indexer, derived records, and downstream usage patterns
 
 ## Core Capabilities
 
 - Index package-related Sui transaction blocks into PostgreSQL
-- Parse and expose Move-call activity for downstream analysis
-- Derive higher-level gameplay records from on-chain state changes
-- Provide wallet-based authentication and API key management
-- Offer a reusable API surface for dashboards, automation, and competition builds
+- Parse Move calls and expose transaction-level detail pages and APIs
+- Derive higher-level gameplay records such as building ownership, character identity, killmails, and user activities
+- Explore world data including systems, constellations, tribes, ships, and route planning
+- Verify POD-backed world records and turn them into shareable cards
+- Support wallet-based login, JWT sessions, and API key management
+- Expose public and authenticated APIs for dashboards, bots, analytics, and competition builds
+
+## User Needs Covered
+
+### Builder / hackathon team
+
+- Need structured data fast
+- Need documented APIs
+- Need auth and key management for automation
+
+### Player / operator
+
+- Need route and world intelligence
+- Need readable activity history
+- Need confidence signals and verification
+
+### Ecosystem / downstream builders
+
+- Need a stable indexed data layer instead of re-parsing chain activity
+- Need higher-level records that map to gameplay events
+- Need infrastructure that can support more than one product
 
 ## Architecture
 
-The repository is organized as a small product stack rather than a single app:
+### Monorepo structure
 
 - `packages/frontend`
   - Next.js application
-  - UI, API routes, auth flows, and database-backed query layer
+  - player-facing UI, API routes, auth flows, and query layer
 - `packages/indexer`
   - long-running Node.js workers
-  - raw transaction ingestion, move-call parsing, and derived-record processing
+  - transaction ingest, move-call parsing, derived-record sync, and user-activity sync
 - `packages/backend`
-  - Move-related package scaffolding retained from earlier project setup
+  - Move package scaffolding retained from earlier setup
 
-At a high level, the data flow looks like this:
+### System architecture
 
-1. `main.mjs` ingests package-related transactions into `transaction_blocks`
-2. watcher scripts derive business tables such as `suiscan_move_calls`, `character_identity`, `killmail_records`, and `building_instances`
-3. the frontend exposes these datasets through UI pages and HTTP APIs
+```mermaid
+flowchart LR
+    A[Sui testnet transactions] --> B[indexer main.mjs]
+    B --> C[(transaction_blocks)]
+    C --> D[move-call watcher]
+    C --> E[derived-record watcher]
+    C --> F[user-activity watcher]
+    D --> G[(suiscan_move_calls)]
+    E --> H[(building_instances)]
+    E --> I[(character_identity)]
+    E --> J[(killmail_records)]
+    F --> K[(user_activity_records)]
+    L[EVE Frontier World API] --> M[frontend world data adapters]
+    G --> N[Next.js API routes]
+    H --> N
+    I --> N
+    J --> N
+    K --> N
+    M --> O[Pages: atlas, jumps, fleet, verify, leaderboards]
+    N --> O
+    P[Wallet login + JWT + API keys] --> N
+```
+
+### Product flow
+
+```mermaid
+flowchart TD
+    A[Raw chain and world data] --> B[Index and normalize]
+    B --> C[Derive gameplay records]
+    C --> D[Expose via pages and APIs]
+    D --> E[Player exploration]
+    D --> F[Builder reuse]
+    D --> G[Competition demos and downstream tools]
+```
 
 ## What Makes It Production-Shaped
 
-- Clear separation between raw facts and derived tables
-- Idempotent indexing and replay-friendly sync jobs
-- Public and authenticated API surfaces in the frontend app
-- Wallet login and API key flows for external reuse
-- Live deployment alongside an open-source codebase
+- Separation between raw facts and derived business tables
+- Replay-friendly and idempotent indexing model
+- Live UI plus API surface in the same product
+- Wallet auth and API key flow for real external consumption
+- Verifiable world-data presentation, not just static content
 
-This is not only a visual demo. It is an operational data product with an ingest layer, derived storage, query APIs, and a user-facing client.
+This is not only a visual demo. It is a working game data product and indexing layer.
+
+## Current Surfaces
+
+- `/atlas`: sampled world map and gate-link exploration
+- `/jumps`: route and travel-related access surface
+- `/fleet`, `/codex`, `/tribes`: game-world entity discovery
+- `/leaderboards`: observed building ownership leaderboard
+- `/verify`: POD verification and shareable system cards
+- `/indexer/*`: indexed transaction, move-call, and character lookup views
+- `/access`: login, JWT/API key, and API explorer flows
 
 ## Running Locally
 
@@ -69,38 +168,53 @@ pnpm install
 pnpm dev
 ```
 
-For indexer-specific runtime details, see [packages/indexer/README.md](./packages/indexer/README.md).
-
 ## Operating The Indexer
 
-If you want the indexed data to keep updating in real time, raw ingest alone is not enough. The main ingester writes to `transaction_blocks`, but derived tables require watcher processes.
+If you want indexed data to stay fresh in real time, raw ingest alone is not enough. The ingester writes transaction blocks first, and watcher processes derive the higher-level records.
 
 In practice:
 
 - keep `packages/indexer/src/main.mjs` running for raw transaction ingestion
-- run `db:watch:derived-records` for derived tables such as building, character, and killmail data
-- run `db:watch:transaction-block-move-calls` only if you also need `suiscan_move_calls` to stay current
+- run `db:watch:derived-records` for building, character, and killmail tables
+- run `db:watch:user-activities` for user activity timelines
+- run `db:watch:transaction-block-move-calls` if you need `suiscan_move_calls` to stay current
 
-The full operational notes are documented in [packages/indexer/README.md](./packages/indexer/README.md).
-
-## Open Source
-
-This repository currently keeps the simple model:
-
-- source code: [MIT](./LICENSE)
-- graphics and related visual assets: [LICENSE-GRAPHICS](./LICENSE-GRAPHICS)
-
-That means the open-source version stays straightforward and broadly reusable. If the project later needs a commercial or open-core model, that can be introduced separately, but the current repository remains under its existing licenses.
+Detailed operational notes are in [packages/indexer/README.md](./packages/indexer/README.md).
 
 ## Use Cases
 
-- Game-data dashboards
-- Hackathon submissions
-- Route, system, or world intelligence tools
-- Chain activity research
-- Community-built products that need an indexed EVE Frontier data layer
+- Hackathon submissions that need ready-to-use on-chain game data
+- Game dashboards and world-intel panels
+- Community tooling around route, building, or combat activity
+- Data pipelines and bots using authenticated or public APIs
+- Reward systems triggered by indexed gameplay events
+- NFT or achievement claims based on indexed thresholds
+- Ecosystem showcases that need a usable product instead of raw explorer screenshots
+
+## Downstream Examples
+
+Because EVE EYES exposes structured gameplay records instead of raw transactions, other projects can build game logic directly on top of it.
+
+Examples include:
+
+- kill-based reward flows, where a user completes a qualifying kill and becomes eligible to claim a specific reward
+- progression systems, where players who reach a target number of owned ships can claim an NFT
+- building, combat, or activity dashboards that do not need to operate their own chain parsing stack
+- quest, badge, or campaign systems driven by indexed on-chain events
+
+This matters because the value is not limited to the EVE EYES interface itself. The indexer acts as shared infrastructure for a growing set of gameplay and community products.
+
+## Open Source
+
+- source code: [MIT](./LICENSE)
+- graphics and visual assets: [LICENSE-GRAPHICS](./LICENSE-GRAPHICS)
 
 ## Status
 
-EVE EYES is an actively evolving open-source project with a live deployment, a working ingest pipeline, and an expanding set of derived data products.
+EVE EYES is actively evolving with:
 
+- a live deployment
+- a working ingest and derivation pipeline
+- wallet-based access flows
+- reusable APIs
+- expanding gameplay-oriented datasets
